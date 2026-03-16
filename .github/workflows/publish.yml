@@ -1,0 +1,43 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: src/Corsinvest.ProxmoxVE.Vdi/Corsinvest.ProxmoxVE.Vdi.csproj
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [ win-x64, linux-x64, linux-arm64, osx-x64, osx-arm64 ]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Publish ${{ matrix.runtime }}
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} \
+          -c Release \
+          -r ${{ matrix.runtime }} \
+          --self-contained \
+          -o publish/${{ matrix.runtime }}
+
+    - name: Zip artifacts
+      run: zip -r cv4pve-vdi-${{ matrix.runtime }}.zip publish/${{ matrix.runtime }}
+
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v2
+      with:
+        files: cv4pve-vdi-${{ matrix.runtime }}.zip
