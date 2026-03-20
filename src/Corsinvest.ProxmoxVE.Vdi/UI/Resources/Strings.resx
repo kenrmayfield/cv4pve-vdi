@@ -45,9 +45,11 @@
   <data name="Refreshing" id="5a0839ae-a01f-49b3-999e-3e1103c0c233"><value>Refreshing...</value></data>
 
   <!-- Filter sidebar -->
-  <data name="SearchWatermark" id="3bfd59df-4525-4ccf-92a8-90cc459c013c"><value>Name, ID, description, tag...</value></data>
+  <data name="SearchWatermark" id="3bfd59df-4525-4ccf-92a8-90cc459c013c"><value>Name, ID, description...</value></data>
   <data name="ResetFilters" id="eff62a67-9156-403b-89b9-bae712d2bec6"><value>Reset filters</value></data>
+  <data name="SectionFilters"><value>FILTERS</value></data>
   <data name="SectionSearch" id="84546fe6-3341-4367-b7ab-f0d9abed1f1b"><value>SEARCH</value></data>
+  <data name="SectionDisplay"><value>DISPLAY</value></data>
   <data name="SectionNodes" id="9c32b9d8-35d3-48e9-ad35-64fd98277b04"><value>NODE</value></data>
   <data name="SectionPools"><value>POOL</value></data>
   <data name="SectionStatus" id="7c831f87-3cea-46a9-8939-2966fb372ea8"><value>STATUS</value></data>
@@ -65,6 +67,7 @@
   <data name="Start" id="3cedeae5-ce0f-4270-8e7e-e8a03b6437b6"><value>Start</value></data>
   <data name="Shutdown" id="5406c684-e115-4bc2-966d-bba25e8a90dd"><value>Shutdown</value></data>
   <data name="Spice" id="e275fe8d-9000-4d56-966c-bbde026d8c5b"><value>SPICE</value></data>
+  <data name="Vnc"><value>VNC</value></data>
   <data name="SpicePrefix" id="0479abb3-5cfa-44e7-9272-b425bfa98bf2"><value>SPICE → </value></data>
   <data name="SpiceShellPrefix" id="dd1bb48b-f93d-4511-a4bd-13dc4b3418d2"><value>SPICE shell → </value></data>
   <data name="SpiceLaunched" id="71f9cd6d-0f5f-4e8f-a6e0-caecc235cdd6"><value>SPICE launched.</value></data>
@@ -82,6 +85,16 @@
   <data name="SettingsWindowTitle" id="ca82cb71-1b12-4aae-bef3-d8a4a092dadf"><value>Settings</value></data>
   <data name="TabAppearance" id="22c6b118-6d08-438d-95c6-be2dc5ddb1e5"><value>Appearance</value></data>
   <data name="TabViewer" id="2eeedf32-21c7-47f4-8422-e3d3e8ba4062"><value>Viewer</value></data>
+  <data name="ViewerNotConfigured"><value>remote-viewer is not configured — SPICE and VNC consoles will not work.</value></data>
+  <data name="OpenSettings"><value>Open Settings</value></data>
+  <data name="More"><value>More</value></data>
+  <data name="DefaultView"><value>View</value></data>
+  <data name="UpdateAvailable"><value>available</value></data>
+  <data name="Documentation"><value>Documentation</value></data>
+  <data name="ReleaseNotes"><value>Release notes</value></data>
+  <data name="Support"><value>Support</value></data>
+  <data name="ReportBug"><value>Report a Bug</value></data>
+  <data name="RequestFeature"><value>Request a Feature</value></data>
   <data name="TabClusters" id="3e9c8e31-7b8d-4f76-be30-106ded5275be"><value>Clusters</value></data>
   <data name="Theme" id="7258ffb1-9c63-449f-8d7d-ddbb1e966c7b"><value>Theme</value></data>
   <data name="ShowBars" id="0df3ce47-356e-41be-937e-2e04396cfcd0"><value>Show CPU/RAM bars</value></data>
@@ -89,12 +102,12 @@
   <data name="ShowShutdownButton" id="5d0ade77-fe7d-4a3b-906d-f03061c7331c"><value>Show Shutdown button</value></data>
   <data name="AskConfirmation" id="ca620985-f083-478a-9f97-07c5e163db6c"><value>Ask confirmation</value></data>
   <data name="PowerButtons" id="aab0a0f1-d9f4-418e-b203-df28ac422d7e"><value>Power buttons</value></data>
-  <data name="SpiceViewerPath" id="ff7eb4ea-57ec-4331-b2b2-a64d39549ec9"><value>SPICE viewer path (remote-viewer)</value></data>
+  <data name="SpiceViewerPath" id="ff7eb4ea-57ec-4331-b2b2-a64d39549ec9"><value>Viewer path (remote-viewer, used for SPICE and VNC)</value></data>
   <data name="SpiceViewerWatermark" id="dbdfdebc-3473-4ae6-9f3c-d46c4fa30024"><value>/usr/bin/remote-viewer</value></data>
   <data name="RdpClientPath" id="422c875d-e8e5-4b33-a131-0fae53c57b71"><value>RDP client path</value></data>
   <data name="RdpClientWatermark" id="3a2eb046-e93f-4b78-b56b-2a85d1a29c40"><value>mstsc.exe  /  xfreerdp  (leave empty for system default)</value></data>
   <data name="Browse" id="f901d7c4-6183-4aa3-a9b9-65eea2def4fb"><value>Browse...</value></data>
-  <data name="SelectSpiceViewer" id="77c143fd-7d89-4acb-824e-6dcb4cda0300"><value>Select SPICE viewer executable</value></data>
+  <data name="SelectSpiceViewer" id="77c143fd-7d89-4acb-824e-6dcb4cda0300"><value>Select viewer executable (remote-viewer)</value></data>
   <data name="SelectRdpClient" id="2c2f8a0c-de2f-43c2-a7a0-c5656824cc34"><value>Select RDP client executable</value></data>
   <data name="Save" id="9718841a-ef38-4feb-afee-7d759101955d"><value>Save</value></data>
   <data name="Cancel" id="ded1ea0e-24c4-4587-bf74-f54e16be633d"><value>Cancel</value></data>
@@ -114,5 +127,24 @@
   <data name="HostViewerOptions"><value>Viewer extra options (optional)</value></data>
   <data name="HostNameRequired"><value>Name and URL are required.</value></data>
   <data name="HostViewerOptionsWatermark"><value>extra args for remote-viewer...</value></data>
+  <data name="HostProtocols"><value>Enabled protocols</value></data>
+  <data name="AgentPing"><value>Ping guest agent (QEMU only)</value></data>
+  <data name="ShowNodes"><value>Show nodes filter</value></data>
+  <data name="ShowPools"><value>Show pools</value></data>
+  <data name="ShowTags"><value>Show tags</value></data>
+  <data name="BadgeAudioSpice"><value>Audio SPICE</value></data>
+  <data name="BadgeUsbRedirect"><value>USB redirect</value></data>
+  <data name="BadgeAgentRunning"><value>Guest agent: running</value></data>
+  <data name="BadgeAgentStopped"><value>Guest agent: not responding</value></data>
+  <data name="BadgeAgentUnknown"><value>Guest agent: configured (ping disabled)</value></data>
+  <data name="BadgeClipboard"><value>Clipboard sharing</value></data>
+  <data name="ConfirmStart"><value>Start {0}?</value></data>
+  <data name="ConfirmShutdown"><value>Shutdown {0}?</value></data>
+  <data name="StatusStarting"><value>Starting {0}...</value></data>
+  <data name="StatusShutdown"><value>Shutdown {0}...</value></data>
+  <data name="StatusVncLaunching"><value>VNC → {0}...</value></data>
+  <data name="StatusVncLaunched"><value>VNC → {0}</value></data>
+  <data name="StatusRdpLaunched"><value>RDP → {0}</value></data>
+  <data name="StatusRdpTooltip"><value>RDP → {0}</value></data>
 
 </root>

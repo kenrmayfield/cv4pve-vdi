@@ -5,7 +5,6 @@
 
 using Corsinvest.ProxmoxVE.Api;
 using Corsinvest.ProxmoxVE.Vdi.Config;
-using Corsinvest.ProxmoxVE.Vdi.Services;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 using Corsinvest.ProxmoxVE.Vdi.UI.Models;
 using AGrid = Avalonia.Controls.Grid;
@@ -31,6 +30,12 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
     private readonly Dictionary<long, (bool HasRdp, string? Ip)> _rdpCache = [];
     // key=VmId, value=osType — read once from Config, never invalidated
     private readonly Dictionary<long, string> _osTypeCache = [];
+    // key=VmId, value=SpiceFeatures — read from Config, refreshed when VM stops/starts
+    private readonly Dictionary<long, SpiceFeatures> _featuresCache = [];
+    // key=VmId, value=(agentRunning, checkedAt) — re-checked only after AgentPingCacheSeconds
+    private readonly Dictionary<long, (bool Running, DateTime CheckedAt)> _agentPingCache = [];
+    private const int AgentPingCacheSeconds = 60;
+    private const int AgentPingTimeoutMs = 500;
 
     private string _filterText = string.Empty;
     private readonly HashSet<string> _filterNodes = [];
@@ -68,17 +73,9 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
         FontSize = 12
     };
 
-    private readonly TextBlock _lblStatus = new()
-    {
-        Text = L("Loading"),
-        VerticalAlignment = VerticalAlignment.Center,
-        FontSize = 11,
-        Margin = new Thickness(4, 0, 0, 0)
-    };
-
     private readonly ProgressBar _progressBar = new()
     {
-        Height = 5,
+        Height = 8,
         Minimum = 0,
         Maximum = 100,
         Value = 0,
@@ -87,6 +84,8 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
         Margin = new Thickness(0)
     };
 
+    private string _pveVersion = string.Empty;
+
     // refresh state
     private bool _isRefreshing = false;
 
@@ -94,11 +93,15 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
     private readonly StackPanel _listContent = new() { Spacing = 16, IsVisible = false };
 
     private ScrollViewer? _sidebar;
+    private StackPanel? _toolbar;
 
     private readonly TextBox _txtSearch = new() { Watermark = L("SearchWatermark") };
     private readonly StackPanel _nodeFilters = new() { Spacing = 4 };
     private readonly StackPanel _poolFilters = new() { Spacing = 4 };
     private readonly StackPanel _tagFilters = new() { Spacing = 4 };
+    private Border? _sectionNodes;
+    private Border? _sectionPools;
+    private Border? _sectionTags;
 
     private readonly CheckBox _chkRunning = new()
     {
@@ -122,21 +125,23 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
     };
     private readonly Button _btnReset = new()
     {
-        Content = AppIcons.WithText(AppIcons.Close, L("ResetFilters")),
-        HorizontalAlignment = HorizontalAlignment.Stretch
+        Content = new PathIcon
+        {
+            Data = Geometry.Parse(AppIcons.Close),
+            Width = 12,
+            Height = 12
+        },
+        Padding = new Thickness(4),
+        Background = Brushes.Transparent,
+        BorderBrush = Brushes.Transparent,
+        BorderThickness = new Thickness(0),
+        VerticalAlignment = VerticalAlignment.Center,
+        HorizontalAlignment = HorizontalAlignment.Right,
+        Opacity = 0.55
     };
 
     private Window? _window;
     private ToggleButton? _btnAutoRef;
-    private readonly Button _btnUpdate = new()
-    {
-        IsVisible = false,
-        Padding = new Thickness(8, 4),
-        Margin = new Thickness(8, 0, 0, 0),
-        Background = new SolidColorBrush(Color.Parse("#1976D2")),
-        Foreground = Brushes.White,
-        CornerRadius = new CornerRadius(4),
-    };
 
     internal static WindowIcon AppIcon()
     {
@@ -167,47 +172,43 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
 
     public Window Build()
     {
-        var btnCardView = new ToggleButton
-        {
-            Content = AppIcons.Toolbar(AppIcons.ViewGrid),
-            Padding = new Thickness(6, 4),
-            IsChecked = true
-        };
-        var btnListView = new ToggleButton
-        {
-            Content = AppIcons.Toolbar(AppIcons.ViewDetail),
-            Padding = new Thickness(6, 4)
-        };
         var btnRefresh = new Button
         {
             Content = AppIcons.Toolbar(AppIcons.Refresh),
-            Padding = new Thickness(6, 4)
+            Padding = new Thickness(6, 4),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0)
+        };
+
+        var autoRefLabel = new TextBlock
+        {
+            Text = "30s",
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(4, 0, 0, 0),
+            IsVisible = false
         };
         _btnAutoRef = new ToggleButton
         {
-            Content = AppIcons.Toolbar(AppIcons.AutoRefresh),
-            Padding = new Thickness(6, 4)
+            Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children = { AppIcons.Toolbar(AppIcons.AutoRefresh), autoRefLabel }
+            },
+            Padding = new Thickness(6, 4),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0)
         };
         var btnAutoRef = _btnAutoRef;
-        var btnSettings = new Button
-        {
-            Content = AppIcons.Toolbar(AppIcons.Settings),
-            Padding = new Thickness(6, 4)
-        };
-        var btnAbout = new Button
-        {
-            Content = AppIcons.Toolbar(AppIcons.Info),
-            Padding = new Thickness(6, 4)
-        };
+        btnAutoRef.IsCheckedChanged += (_, _) => autoRefLabel.IsVisible = btnAutoRef.IsChecked == true;
 
-        _lblStatus.Secondary();
+        var menuItemSettings = new MenuItem { Header = AppIcons.WithText(AppIcons.Settings, L("Settings")) };
+        var btnMore = BuildHelpMenu(menuItemSettings);
 
-        Avalonia.Controls.ToolTip.SetTip(btnCardView, L("CardView"));
-        Avalonia.Controls.ToolTip.SetTip(btnListView, L("DetailView"));
         Avalonia.Controls.ToolTip.SetTip(btnRefresh, L("Refresh"));
         Avalonia.Controls.ToolTip.SetTip(btnAutoRef, L("AutoRefresh"));
-        Avalonia.Controls.ToolTip.SetTip(btnSettings, L("Settings"));
-        Avalonia.Controls.ToolTip.SetTip(btnAbout, L("About"));
 
         var statsPanel = new StackPanel
         {
@@ -216,11 +217,26 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        statsPanel.Children.Add(StatChipDot(_lblRunning, AppColors.Running, L("StatusRunning")));
-        statsPanel.Children.Add(StatChipDot(_lblStopped, AppColors.Stopped, L("StatusStopped")));
-        statsPanel.Children.Add(StatChipIcon(AppIcons.Server, _lblNodes, AppColors.StatNodes, L("TypeNode")));
-        statsPanel.Children.Add(StatChipIcon(AppIcons.Vm, _lblVMs, AppColors.StatVMs, L("TypeVm")));
-        statsPanel.Children.Add(StatChipIcon(AppIcons.Ct, _lblCTs, AppColors.StatCTs, L("TypeCt")));
+
+        var chipRunning = StatChipDot(_lblRunning, AppColors.Running, L("StatusRunning"));
+        var chipStopped = StatChipDot(_lblStopped, AppColors.Stopped, L("StatusStopped"));
+        var chipNodes = StatChipIcon(AppIcons.Server, _lblNodes, AppColors.StatNodes, L("TypeNode"));
+        var chipVMs = StatChipIcon(AppIcons.Vm, _lblVMs, AppColors.StatVMs, L("TypeVm"));
+        var chipCTs = StatChipIcon(AppIcons.Ct, _lblCTs, AppColors.StatCTs, L("TypeCt"));
+        statsPanel.Children.Add(chipRunning);
+        statsPanel.Children.Add(chipStopped);
+        statsPanel.Children.Add(chipNodes);
+        statsPanel.Children.Add(chipVMs);
+        statsPanel.Children.Add(chipCTs);
+
+        void RefreshChipColors()
+        {
+            chipRunning.Background = new SolidColorBrush(Color.FromArgb(ChipAlpha, AppColors.Running.R, AppColors.Running.G, AppColors.Running.B));
+            chipStopped.Background = new SolidColorBrush(Color.FromArgb(ChipAlpha, AppColors.Stopped.R, AppColors.Stopped.G, AppColors.Stopped.B));
+            chipNodes.Background = new SolidColorBrush(Color.FromArgb(ChipAlpha, AppColors.StatNodes.R, AppColors.StatNodes.G, AppColors.StatNodes.B));
+            chipVMs.Background = new SolidColorBrush(Color.FromArgb(ChipAlpha, AppColors.StatVMs.R, AppColors.StatVMs.G, AppColors.StatVMs.B));
+            chipCTs.Background = new SolidColorBrush(Color.FromArgb(ChipAlpha, AppColors.StatCTs.R, AppColors.StatCTs.G, AppColors.StatCTs.B));
+        }
 
         var logoLbl = new TextBlock
         {
@@ -230,24 +246,18 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             VerticalAlignment = VerticalAlignment.Center
         };
 
-        var btnPanel = new StackPanel
+        _toolbar = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 4,
             VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
+            IsEnabled = false
         };
-        btnPanel.Children.Add(_lblStatus);
-        btnPanel.Children.Add(new Separator { Width = 8 });
-        btnPanel.Children.Add(btnCardView);
-        btnPanel.Children.Add(btnListView);
-        btnPanel.Children.Add(new Separator { Width = 8 });
+        var btnPanel = _toolbar;
         btnPanel.Children.Add(btnRefresh);
         btnPanel.Children.Add(btnAutoRef);
-        btnPanel.Children.Add(btnSettings);
-        btnPanel.Children.Add(new Separator { Width = 8 });
-        btnPanel.Children.Add(btnAbout);
-        btnPanel.Children.Add(_btnUpdate);
+        btnPanel.Children.Add(btnMore);
 
         var topbarInner = new AGrid
         {
@@ -273,36 +283,36 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
                 Spacing = 0,
                 Children =
                 {
-                    _btnReset,
+                    BuildFiltersHeader(),
                     SideSection(L("SectionSearch"), _txtSearch),
-                    SideSection(L("SectionNodes"),  new ScrollViewer
-                    {
-                        MaxHeight = 150,
-                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                        Content = _nodeFilters
-                    }),
-                    SideSection(L("SectionPools"),  new ScrollViewer
-                    {
-                        MaxHeight = 150,
-                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                        Content = _poolFilters
-                    }),
                     SideSection(L("SectionStatus"), new StackPanel
                     {
                         Spacing = 4,
                         Children = { _chkRunning, _chkStopped }
                     }),
-                    SideSection(L("SectionType"),   new StackPanel
+                    SideSection(L("SectionType"), new StackPanel
                     {
                         Spacing = 4,
                         Children = { _chkQemu, _chkLxc }
                     }),
-                    SideSection(L("SectionTags"),   new ScrollViewer
+                    (_sectionNodes = SideSection(L("SectionNodes"), new ScrollViewer
+                    {
+                        MaxHeight = 150,
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                        Content = _nodeFilters
+                    }, AppIcons.Server)),
+                    (_sectionPools = SideSection(L("SectionPools"), new ScrollViewer
+                    {
+                        MaxHeight = 150,
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                        Content = _poolFilters
+                    }, AppIcons.Folder)),
+                    (_sectionTags = SideSection(L("SectionTags"), new ScrollViewer
                     {
                         MaxHeight = 150,
                         VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                         Content = _tagFilters
-                    }),
+                    }, AppIcons.Tag)),
                 }
             }
         };
@@ -319,19 +329,44 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto
         };
 
+        var btnConfigureViewer = new Button
+        {
+            Content = L("OpenSettings"),
+            Padding = new Thickness(8, 2),
+            Margin = new Thickness(12, 0, 0, 0)
+        };
+
+        var viewerWarningBanner = BuildPersistentBanner(btnConfigureViewer);
+
+        btnConfigureViewer.Click += async (_, _) =>
+        {
+            var w = SettingsWindow.Create(_config, initialTab: 1);
+            w.Icon = AppIcon();
+            await w.ShowDialog(_window!);
+            UpdateViewerWarning();
+        };
+
         var mainGrid = new AGrid
         {
-            RowDefinitions = new RowDefinitions("Auto,*,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
         AGrid.SetRow(topbar, 0);
         AGrid.SetColumnSpan(topbar, 2);
         mainGrid.Children.Add(topbar);
-        mainGrid.Add(scrollContent, 0, 1);
-        mainGrid.Add(_sidebar, 1, 1);
-        AGrid.SetRow(_progressBar, 2);
+        AGrid.SetRow(viewerWarningBanner, 1);
+        AGrid.SetColumnSpan(viewerWarningBanner, 2);
+        mainGrid.Children.Add(viewerWarningBanner);
+        mainGrid.Add(scrollContent, 0, 2);
+        mainGrid.Add(_sidebar, 1, 2);
+        AGrid.SetRow(_progressBar, 3);
         AGrid.SetColumnSpan(_progressBar, 2);
         mainGrid.Children.Add(_progressBar);
+
+        // toast overlay — spans full grid, pointer passthrough except on toasts
+        AGrid.SetRow(_toastStack, 2);
+        AGrid.SetColumnSpan(_toastStack, 2);
+        mainGrid.Children.Add(_toastStack);
 
         _window = new Window
         {
@@ -344,30 +379,17 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             Content = mainGrid
         };
 
-        btnCardView.IsCheckedChanged += (_, _) =>
+        void ApplyDefaultView()
         {
-            if (btnCardView.IsChecked == true)
-            {
-                btnListView.IsChecked = false;
-                _cardContent.IsVisible = true;
-                _listContent.IsVisible = false;
-                scrollContent.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-            }
-        };
-        btnListView.IsCheckedChanged += (_, _) =>
-        {
-            if (btnListView.IsChecked == true)
-            {
-                btnCardView.IsChecked = false;
-                _cardContent.IsVisible = false;
-                _listContent.IsVisible = true;
-                scrollContent.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
-            }
-        };
+            var isList = _config.DefaultView == VdiConfig.ViewList;
+            _cardContent.IsVisible = !isList;
+            _listContent.IsVisible = isList;
+            scrollContent.HorizontalScrollBarVisibility = isList ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        }
 
         _txtSearch.TextChanged += (_, _) =>
         {
-            _filterText = _txtSearch.Text ?? "";
+            _filterText = _txtSearch.Text ?? string.Empty;
             ApplyFilter();
         };
         _chkRunning.IsCheckedChanged += (_, _) => ApplyFilter();
@@ -377,7 +399,7 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
 
         _btnReset.Click += (_, _) =>
         {
-            _txtSearch.Text = "";
+            _txtSearch.Text = string.Empty;
             _chkRunning.IsChecked = _chkStopped.IsChecked = false;
             _chkQemu.IsChecked = _chkLxc.IsChecked = false;
             _filterNodes.Clear();
@@ -401,72 +423,100 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             ApplyFilter();
         };
 
-        btnSettings.Click += async (_, _) =>
+        menuItemSettings.Click += async (_, _) =>
         {
+            var prevEnableSpice = _config.EnableSpice;
+            var prevEnableVnc = _config.EnableVnc;
+            var prevEnableRdp = _config.EnableRdp;
+            var prevEnableAgentPing = _config.EnableAgentPing;
+            var prevShowNodes = _config.ShowNodes;
+            var prevShowPools = _config.ShowPools;
+            var prevShowTags = _config.ShowTags;
+            var prevViewerPath = _config.ViewerPath;
+
             var w = SettingsWindow.Create(_config);
             w.Icon = AppIcon();
-            await w.ShowDialog(_window);
-        };
+            await w.ShowDialog(_window!);
 
-        btnAbout.Click += async (_, _) => await ShowAboutAsync();
+            ApplySidebarVisibility();
+            ApplyDefaultView();
+            UpdateViewerWarning();
 
-        btnRefresh.Click += async (_, _) => await RefreshAsync(btnRefresh, btnAutoRef);
-
-        CancellationTokenSource? autoRefreshCts = null;
-        btnAutoRef.IsCheckedChanged += (_, _) =>
-        {
-            if (btnAutoRef.IsChecked == true)
+            // Protocol flags changed → clear relevant caches
+            if (_config.EnableSpice != prevEnableSpice
+                || _config.EnableAgentPing != prevEnableAgentPing
+                || _config.ViewerPath != prevViewerPath)
             {
-                autoRefreshCts = new CancellationTokenSource();
-                var token = autoRefreshCts.Token;
-                Task.Run(async () =>
-                {
-                    while (!token.IsCancellationRequested)
-                    {
-                        await Task.Delay(30_000, token).ContinueWith(_ => { });
-                        if (!token.IsCancellationRequested)
-                        {
-                            await Dispatcher.UIThread.InvokeAsync(() => RefreshAsync(btnRefresh, btnAutoRef));
-                        }
-                    }
-                }, token);
+                _spiceConfigCache.Clear();
+                _featuresCache.Clear();
+            }
+
+            if (_config.EnableRdp != prevEnableRdp) { _rdpCache.Clear(); }
+
+            // Newly enabled sidebar sections need data → refresh
+            var needsRefresh = (_config.EnableSpice != prevEnableSpice)
+                            || (_config.EnableVnc != prevEnableVnc)
+                            || (_config.EnableRdp != prevEnableRdp)
+                            || (_config.EnableAgentPing != prevEnableAgentPing)
+                            || (_config.ShowNodes && !prevShowNodes)
+                            || (_config.ShowPools && !prevShowPools)
+                            || (_config.ShowTags && !prevShowTags)
+                            || (_config.ViewerPath != prevViewerPath);
+
+
+            if (needsRefresh)
+            {
+                await RefreshAsync();
             }
             else
             {
-                autoRefreshCts?.Cancel();
-                autoRefreshCts = null;
+                ApplyFilter();
             }
         };
 
-        _window.Closing += (_, _) => autoRefreshCts?.Cancel();
+
+        btnRefresh.Click += async (_, _) => await RefreshAsync();
+
+        var autoRefTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        autoRefTimer.Tick += async (_, _) =>
+        {
+            if (_isRefreshing) return;
+            await RefreshAsync();
+        };
+
+        btnAutoRef.IsCheckedChanged += (_, _) =>
+        {
+            if (btnAutoRef.IsChecked == true) autoRefTimer.Start();
+            else autoRefTimer.Stop();
+        };
+
+        _window.Closing += (_, _) => autoRefTimer.Stop();
         _window.Opened += async (_, _) =>
         {
-            await RefreshAsync(btnRefresh, btnAutoRef);
-
-            UpdateChecker.StartBackground((version, url) =>
-            {
-                _btnUpdate.Content = AppIcons.WithText(AppIcons.Update, $"v{version} available");
-                _btnUpdate.IsVisible = true;
-                Avalonia.Controls.ToolTip.SetTip(_btnUpdate, $"New version {version} available — click to open release page");
-                _btnUpdate.Click += (_, _) => TopLevel.GetTopLevel(_window)?.Launcher.LaunchUriAsync(new Uri(url));
-            });
+            ApplySidebarVisibility();
+            ApplyDefaultView();
+            UpdateViewerWarning();
+            await RefreshAsync();
         };
 
         Avalonia.Application.Current?.ActualThemeVariantChanged += (_, _) =>
-            {
-                _lblStatus.Secondary();
-                ApplyFilter();
-            };
+        {
+            RefreshChipColors();
+            UpdateViewerWarning();
+            ApplyFilter();
+        };
 
         return _window;
     }
 
-    private static Control StatChipDot(TextBlock valueLabel, Color dotColor, string label)
+    private static byte ChipAlpha => AppColors.IsDark ? (byte)40 : (byte)20;
+
+    private static Border StatChipDot(TextBlock valueLabel, Color dotColor, string label)
         => new Border
         {
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 4),
-            Background = new SolidColorBrush(Color.FromArgb(20, dotColor.R, dotColor.G, dotColor.B)),
+            Background = new SolidColorBrush(Color.FromArgb(ChipAlpha, dotColor.R, dotColor.G, dotColor.B)),
             Child = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -493,12 +543,12 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             }
         };
 
-    private static Control StatChipIcon(string iconData, TextBlock valueLabel, Color iconColor, string label)
+    private static Border StatChipIcon(string iconData, TextBlock valueLabel, Color iconColor, string label)
         => new Border
         {
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 4),
-            Background = new SolidColorBrush(Color.FromArgb(20, iconColor.R, iconColor.G, iconColor.B)),
+            Background = new SolidColorBrush(Color.FromArgb(ChipAlpha, iconColor.R, iconColor.G, iconColor.B)),
             Child = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -525,7 +575,52 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             }
         };
 
-    private static Border SideSection(string title, Control content)
+    internal void UpdateViewerWarning()
+    {
+        if (string.IsNullOrEmpty(_config.ViewerPath))
+        {
+            ShowBanner(L("ViewerNotConfigured"), NotificationSeverity.Warning);
+        }
+        else
+        {
+            HideBanner();
+        }
+    }
+
+    internal void ApplySidebarVisibility()
+    {
+        _sectionNodes?.IsVisible = _config.ShowNodes;
+        _sectionPools?.IsVisible = _config.ShowPools;
+        _sectionTags?.IsVisible = _config.ShowTags;
+    }
+
+    private Border BuildFiltersHeader()
+    {
+        var headerGrid = new AGrid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto")
+        };
+        var lbl = new TextBlock
+        {
+            Text = L("SectionFilters"),
+            FontSize = 10,
+            FontWeight = FontWeight.Bold,
+            Opacity = 0.5,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        AGrid.SetColumn(lbl, 0);
+        AGrid.SetColumn(_btnReset, 1);
+        headerGrid.Children.Add(lbl);
+        headerGrid.Children.Add(_btnReset);
+        Avalonia.Controls.ToolTip.SetTip(_btnReset, L("ResetFilters"));
+        return new Border
+        {
+            Padding = new Thickness(0, 0, 0, 10),
+            Child = headerGrid
+        };
+    }
+
+    private static Border SideSection(string title, Control content, string? icon = null)
         => new()
         {
             Padding = new Thickness(0, 0, 0, 14),
@@ -534,14 +629,40 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
                 Spacing = 6,
                 Children =
                 {
-                    new TextBlock
-                    {
-                        Text = title,
-                        FontSize = 10,
-                        FontWeight = FontWeight.Bold,
-                        Opacity = 0.5,
-                        Margin = new Thickness(0, 0, 0, 2)
-                    },
+                    icon == null
+                        ? new TextBlock
+                        {
+                            Text = title,
+                            FontSize = 10,
+                            FontWeight = FontWeight.Bold,
+                            Opacity = 0.5,
+                            Margin = new Thickness(0, 0, 0, 2)
+                        }
+                        : new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Spacing = 4,
+                            Margin = new Thickness(0, 0, 0, 2),
+                            Children =
+                            {
+                                new PathIcon
+                                {
+                                    Data = Geometry.Parse(icon),
+                                    Width = 10,
+                                    Height = 10,
+                                    Opacity = 0.5,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                },
+                                new TextBlock
+                                {
+                                    Text = title,
+                                    FontSize = 10,
+                                    FontWeight = FontWeight.Bold,
+                                    Opacity = 0.5,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                }
+                            }
+                        },
                     content
                 }
             }

@@ -152,10 +152,9 @@ internal static class LoginWindow
 
         void RefreshHostList()
         {
-            var prevIdx = cmbHost.SelectedIndex;
             cmbHost.ItemsSource = config.Hosts.Select(h => h.Name).ToList();
             cmbHost.SelectedIndex = config.Hosts.Count > 0
-                                        ? Math.Clamp(prevIdx, 0, config.Hosts.Count - 1)
+                                        ? Math.Clamp(cmbHost.SelectedIndex, 0, config.Hosts.Count - 1)
                                         : -1;
         }
 
@@ -176,8 +175,8 @@ internal static class LoginWindow
 
             var idx = cmbHost.SelectedIndex;
             var host = idx >= 0 && idx < config.Hosts.Count
-                ? config.Hosts[idx]
-                : null;
+                        ? config.Hosts[idx]
+                        : null;
 
             if (host == null)
             {
@@ -230,15 +229,13 @@ internal static class LoginWindow
         try
         {
             var (client, _) = await ClientHelper.GetClientFromHAAsync(host.Hosts, host.Timeout * 1000);
-            if (client == null)
-            {
-                return (null, "No reachable hosts found");
-            }
+            if (client == null) { return (null, "No reachable hosts found"); }
 
             client.ValidateCertificate = !host.SkipSslValidation;
             var otpValue = string.IsNullOrWhiteSpace(otp)
-                ? null
-                : otp;
+                            ? null
+                            : otp;
+
             if (!await client.LoginAsync(username, password, otpValue))
             {
                 return (null, client.LastResult?.ReasonPhrase ?? "Authentication failed");

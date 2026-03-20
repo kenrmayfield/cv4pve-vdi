@@ -22,6 +22,9 @@ internal static class AppIcons
     public const string Windows = "M3,12V6.75L9,5.43V11.91L3,12M20,3V11.75L10,11.9V5.21L20,3M3,13L9,13.09V19.9L3,18.75V13M20,13.25V22L10,20.09V13.1L20,13.25Z";
     public const string Rdp = "M3,2A2,2 0 0,0 1,4V16C1,17.11 1.9,18 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4A2,2 0 0,0 21,2M3,4H21V16H3M15,5L11.5,8.5L15,12L16.4,10.6L14.3,8.5L16.4,6.4M9,8L7.6,9.4L9.7,11.5L7.6,13.6L9,15L12.5,11.5";
 
+    public const string Vnc = "M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2M12,7C9.52,7 7.25,8.5 6,11C7.25,13.5 9.52,15 12,15C14.48,15 16.75,13.5 18,11C16.75,8.5 14.48,7 12,7M12,13.5A2.5,2.5 0 0,1 9.5,11A2.5,2.5 0 0,1 12,8.5A2.5,2.5 0 0,1 14.5,11A2.5,2.5 0 0,1 12,13.5Z";
+    public const string Agent = "M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21A7,7 0 0,1 14,26H10A7,7 0 0,1 3,19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z"; // robot (guest agent)
+
     // View toggle
     public const string ViewGrid = "M3,11H11V3H3M3,21H11V13H3M13,21H21V13H13M13,3V11H21V3";
     public const string ViewDetail = "M3,5H21V7H3V5M3,13H15V11H3V13M3,19H18V17H3V19M19,15L22,18L19,21V19H16V17H19V15Z";
@@ -51,10 +54,19 @@ internal static class AppIcons
     public const string Network = "M15,20A1,1 0 0,0 14,19H13V17H17A2,2 0 0,0 19,15V5A2,2 0 0,0 17,3H7A2,2 0 0,0 5,5V15A2,2 0 0,0 7,17H11V19H10A1,1 0 0,0 9,20H2V22H9A1,1 0 0,0 10,23H14A1,1 0 0,0 15,22H22V20H15M7,15V5H17V15H7Z";
     public const string Linux = "M12,1C8.14,1 5,4.14 5,8C5,10.38 6.19,12.47 8,13.74V16L10,17L10,15.27C10.65,15.72 11.29,16 12,16C12.71,16 13.35,15.72 14,15.27V17L16,16V13.74C17.81,12.47 19,10.38 19,8C19,4.14 15.86,1 12,1M9,8.5C8.17,8.5 7.5,7.83 7.5,7C7.5,6.17 8.17,5.5 9,5.5C9.83,5.5 10.5,6.17 10.5,7C10.5,7.83 9.83,8.5 9,8.5M15,8.5C14.17,8.5 13.5,7.83 13.5,7C13.5,6.17 14.17,5.5 15,5.5C15.83,5.5 16.5,6.17 16.5,7C16.5,7.83 15.83,8.5 15,8.5M8,18H16L15,23H9L8,18Z";
     public const string Console = "M20,19V7H4V19H20M20,3A2,2 0 0,1 22,5V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V5C2,3.89 2.9,3 4,3H20M13,17V15H18V17H13M9.58,17L5.57,13L9.58,9L11,10.41L8.42,13L11,15.59L9.58,17Z";
+    public const string Tune = "M3,17V19H9V17H3M3,5V7H13V5H3M13,5V7H21V5H13M13,11V13H21V11H13M7,11V13H3V11H7M7,11H9V13H7V11Z";
+    public const string DotsVertical = "M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z";
+    public const string Book = "M19,2L14,6.5V17.5L19,13V2M6.5,5C4.55,5 2.45,5.4 1,6.5V21.16C1,21.41 1.25,21.66 1.5,21.66C1.6,21.66 1.65,21.59 1.75,21.59C3.1,20.94 5.05,20.5 6.5,20.5C8.45,20.5 10.55,20.9 12,22C13.35,21.15 15.8,20.5 17.5,20.5C19.15,20.5 20.85,20.81 22.25,21.56C22.35,21.61 22.4,21.59 22.5,21.59C22.75,21.59 23,21.34 23,21.09V6.5C22.4,6.05 21.75,5.75 21,5.5V19C19.9,18.65 18.7,18.5 17.5,18.5C15.8,18.5 13.35,19.15 12,20V6.5C10.55,5.4 8.45,5 6.5,5Z";
+    public const string Bug = "M20,8H17.19C16.74,7.22 16.12,6.55 15.37,6.04L17,4.41L15.59,3L13.42,5.17C12.96,5.06 12.5,5 12,5C11.5,5 11.04,5.06 10.59,5.17L8.41,3L7,4.41L8.62,6.04C7.88,6.55 7.26,7.22 6.81,8H4V10H6.09C6.04,10.33 6,10.66 6,11V12H4V14H6V15C6,15.34 6.04,15.67 6.09,16H4V18H6.81C7.85,19.79 9.78,21 12,21C14.22,21 16.15,19.79 17.19,18H20V16H17.91C17.96,15.67 18,15.34 18,15V14H20V12H18V11C18,10.66 17.96,10.33 17.91,10H20V8M16,15A4,4 0 0,1 12,19A4,4 0 0,1 8,15V11A4,4 0 0,1 12,7A4,4 0 0,1 16,11V15M14,10H10V12H14V10M14,13H10V15H14V13Z";
+    public const string Star = "M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z";
     public const string Tag = "M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z";
+
+    // Feature badges
+    public const string Audio = "M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z";
+    public const string Usb = "M12,1L8,5H11V14H13V5H16M18.92,9L17.08,9.5L16,14H13V19L14.5,20.5L16,19V14L17,18.5L18.92,18L20.08,13.5C20.36,12.4 19.75,11.3 18.92,9M11,14H8L7,18.5L8.08,18L9,13.5L10,19L11.5,20.5L13,19V14H11Z";
+    public const string Clipboard2 = "M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7Z";
     public const string Folder = "M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z";
 
-    /// <summary>Creates a PathIcon for use as InnerLeftContent in a TextBox (14x14).</summary>
     public static PathIcon Inner(string data)
         => new()
         {
@@ -65,7 +77,6 @@ internal static class AppIcons
             Opacity = 0.5
         };
 
-    /// <summary>Creates a PathIcon for overlay use on a Grid (left-centered, non-interactive).</summary>
     public static PathIcon InnerOverlay(string data)
         => new()
         {
@@ -79,7 +90,6 @@ internal static class AppIcons
             IsHitTestVisible = false
         };
 
-    /// <summary>Creates a PathIcon sized for toolbar buttons (18x18).</summary>
     public static PathIcon Toolbar(string data)
         => new()
         {
@@ -88,35 +98,27 @@ internal static class AppIcons
             Height = 18,
         };
 
-    /// <summary>Creates a PathIcon sized for inline row buttons (14x14).</summary>
     public static PathIcon Row(string data, IBrush? foreground = null)
     {
         var icon = new PathIcon
         {
             Data = Geometry.Parse(data),
             Width = 14,
-            Height = 14,
+            Height = 14
         };
-        if (foreground != null)
-        {
-            icon.Foreground = foreground;
-        }
+        if (foreground != null) { icon.Foreground = foreground; }
         return icon;
     }
 
-    /// <summary>Creates a StackPanel with a 16x16 icon and a label — for dialog buttons.</summary>
     public static StackPanel WithText(string data, string text, IBrush? foreground = null)
     {
         var icon = new PathIcon
         {
             Data = Geometry.Parse(data),
             Width = 16,
-            Height = 16,
+            Height = 16
         };
-        if (foreground != null)
-        {
-            icon.Foreground = foreground;
-        }
+        if (foreground != null) { icon.Foreground = foreground; }
         return new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -124,11 +126,7 @@ internal static class AppIcons
             Children =
             {
                 icon,
-                new TextBlock
-                {
-                    Text = text,
-                    VerticalAlignment = VerticalAlignment.Center
-                }
+                new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center }
             }
         };
     }

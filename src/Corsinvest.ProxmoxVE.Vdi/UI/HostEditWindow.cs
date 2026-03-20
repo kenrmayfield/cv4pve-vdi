@@ -78,14 +78,10 @@ internal static class HostEditWindow
 
         var btnSave = new Button
         {
-            Content = isEdit
-                ? AppIcons.WithText(AppIcons.Save, L("Save"))
-                : AppIcons.WithText(AppIcons.Add, L("Add"))
+            Content = AppIcons.Toolbar(isEdit ? AppIcons.Save : AppIcons.Add),
+            Padding = new Thickness(6, 4)
         };
-        var btnCancel = new Button
-        {
-            Content = AppIcons.WithText(AppIcons.Close, L("Cancel"))
-        };
+        Avalonia.Controls.ToolTip.SetTip(btnSave, isEdit ? L("Save") : L("Add"));
 
         var window = new Window
         {
@@ -140,7 +136,7 @@ internal static class HostEditWindow
                         Orientation = Orientation.Horizontal,
                         HorizontalAlignment = HorizontalAlignment.Right,
                         Spacing = 8,
-                        Children = { btnCancel, btnSave }
+                        Children = { btnSave }
                     }
                 }
             }
@@ -173,8 +169,6 @@ internal static class HostEditWindow
 
             window.Close(result);
         };
-
-        btnCancel.Click += (_, _) => window.Close(null);
 
         return window;
     }

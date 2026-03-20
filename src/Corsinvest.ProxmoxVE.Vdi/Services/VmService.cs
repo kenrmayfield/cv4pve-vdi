@@ -26,10 +26,9 @@ internal static class VmService
         try
         {
             var ifaces = await client.Nodes[node].Qemu[vmId].Agent.NetworkGetInterfaces.GetAsync();
-            return ifaces?.Result
-                .SelectMany(i => i.IpAddresses)
-                .FirstOrDefault(a => a.IpAddressType == "ipv4" && !a.IpAddress.StartsWith("127."))
-                ?.IpAddress;
+            return ifaces?.Result.SelectMany(i => i.IpAddresses)
+                                 .FirstOrDefault(a => a.IpAddressType == "ipv4" && !a.IpAddress.StartsWith("127."))
+                                 ?.IpAddress;
         }
         catch { return null; }
     }
@@ -51,7 +50,7 @@ internal static class VmService
     /// <summary>
     /// Launches mstsc.exe (Windows) or xfreerdp (Linux/Mac) to connect via RDP.
     /// </summary>
-    public static string LaunchRdp(string ip, string rdpPath = "")
+    public static string LaunchRdp(string ip, string rdpPath)
     {
         try
         {
@@ -71,6 +70,7 @@ internal static class VmService
                 startInfo.FileName = "xfreerdp";
                 startInfo.Arguments = $"/v:{ip}";
             }
+
             Process.Start(startInfo);
             return string.Empty;
         }

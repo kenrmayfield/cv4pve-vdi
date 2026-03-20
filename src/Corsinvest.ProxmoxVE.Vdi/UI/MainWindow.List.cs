@@ -35,8 +35,14 @@ internal partial class MainWindow
 
     private Control BuildListRow(ResourceRow r)
     {
-        var dot = BuildStatusDot(r);
-        dot.Margin = new Thickness(0, 0, 8, 0);
+        var statusDotPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        statusDotPanel.Children.Add(BuildStatusDot(r));
+        BuildAgentBadge(r, statusDotPanel);
 
         var idLbl = new TextBlock
         {
@@ -71,7 +77,10 @@ internal partial class MainWindow
                         ? BuildInlineBar(r.MemoryPct, r.MemoryDisplay)
                         : new Border();
 
-        var tagsPanel = BuildTagsPanel(r.Tags);
+        var tagsPanel = _config.ShowTags
+                            ? BuildTagsPanel(r.Tags)
+                            : new WrapPanel();
+
         tagsPanel.VerticalAlignment = VerticalAlignment.Center;
 
         var btnPanel = new StackPanel
@@ -80,13 +89,11 @@ internal partial class MainWindow
             Spacing = 4,
             VerticalAlignment = VerticalAlignment.Center
         };
-        AddActionButtons(btnPanel, r, isCard: false);
 
-        // colonne fisse: dot(20) | id(50) | name(200) | type(90) | tags(180) | cpu(200) | ram(200) | buttons(96)
         var rowGrid = new AGrid
         {
             VerticalAlignment = VerticalAlignment.Center,
-            ColumnDefinitions = new ColumnDefinitions("20,50,200,90,180,200,200,96")
+            ColumnDefinitions = new ColumnDefinitions("44,50,200,90,180,200,200,96")
         };
 
         void SetCol(Control c, int col, HorizontalAlignment ha = HorizontalAlignment.Stretch)
@@ -98,7 +105,7 @@ internal partial class MainWindow
             rowGrid.Children.Add(c);
         }
 
-        SetCol(dot, 0, HorizontalAlignment.Center);
+        SetCol(statusDotPanel, 0, HorizontalAlignment.Left);
         SetCol(idLbl, 1);
         SetCol(nameLbl, 2);
         SetCol(typeLbl, 3, HorizontalAlignment.Center);
@@ -117,6 +124,8 @@ internal partial class MainWindow
         };
         row.PointerEntered += (_, _) => row.Background = hoverBrush;
         row.PointerExited += (_, _) => row.Background = null;
+
+        AddActionButtons(btnPanel, r, isCard: false);
         return row;
     }
 
