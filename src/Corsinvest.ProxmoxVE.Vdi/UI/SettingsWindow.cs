@@ -13,16 +13,19 @@ internal static class SettingsWindow
     public static Window Create(VdiConfig config, Action? onHostsChanged = null, int initialTab = 0, bool clustersOnly = false)
     {
         // Tab 1: Appearance
-        var themes = new[] { "System", "Light", "Dark" };
+        var themes = new[] { VdiConfig.ThemeSystem, VdiConfig.ThemeLight, VdiConfig.ThemeDark };
+
         var cmbTheme = new ComboBox
         {
             ItemsSource = themes,
             SelectedItem = themes.Contains(config.Theme)
-                ? config.Theme
-                : "System",
+                            ? config.Theme
+                            : VdiConfig.ThemeSystem,
+
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(26, 0, 0, 0)
         };
+
         var cmbThemeWithIcon = new Grid();
         cmbThemeWithIcon.Children.Add(cmbTheme);
         cmbThemeWithIcon.Children.Add(AppIcons.InnerOverlay(AppIcons.Palette));
@@ -32,11 +35,13 @@ internal static class SettingsWindow
             Content = AppIcons.WithText(AppIcons.ChartBar, L("ShowBars")),
             IsChecked = config.ShowBars
         };
+
         var chkShowStart = new CheckBox
         {
             Content = AppIcons.WithText(AppIcons.Play, L("ShowStartButton"), new SolidColorBrush(AppColors.Running)),
             IsChecked = config.ShowStartButton
         };
+
         var chkConfirmStart = new CheckBox
         {
             Content = L("AskConfirmation"),
@@ -44,11 +49,13 @@ internal static class SettingsWindow
             IsEnabled = config.ShowStartButton,
             HorizontalAlignment = HorizontalAlignment.Right
         };
+
         var chkShowShutdown = new CheckBox
         {
             Content = AppIcons.WithText(AppIcons.Stop, L("ShowShutdownButton"), new SolidColorBrush(AppColors.Shutdown)),
             IsChecked = config.ShowShutdownButton
         };
+
         var chkConfirmShutdown = new CheckBox
         {
             Content = L("AskConfirmation"),
@@ -63,23 +70,135 @@ internal static class SettingsWindow
         chkShowStart.IsCheckedChanged += (_, _) => chkConfirmStart.IsEnabled = chkShowStart.IsChecked == true;
         chkShowShutdown.IsCheckedChanged += (_, _) => chkConfirmShutdown.IsEnabled = chkShowShutdown.IsChecked == true;
 
+        var chkShowNodes = new CheckBox
+        {
+            Content = AppIcons.WithText(AppIcons.Server, L("ShowNodes")),
+            IsChecked = config.ShowNodes
+        };
+
+        var chkShowPools = new CheckBox
+        {
+            Content = AppIcons.WithText(AppIcons.Folder, L("ShowPools")),
+            IsChecked = config.ShowPools
+        };
+
+        var chkShowTags = new CheckBox
+        {
+            Content = AppIcons.WithText(AppIcons.Tag, L("ShowTags")),
+            IsChecked = config.ShowTags
+        };
+
+        // View toggle (Card / List)
+        var isCard = config.DefaultView != VdiConfig.ViewList;
+        var btnViewCard = new ToggleButton
+        {
+            Content = AppIcons.WithText(AppIcons.ViewGrid, VdiConfig.ViewCard),
+            IsChecked = isCard,
+            Padding = new Thickness(8, 4),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent
+        };
+        var btnViewList = new ToggleButton
+        {
+            Content = AppIcons.WithText(AppIcons.ViewDetail, VdiConfig.ViewList),
+            IsChecked = !isCard,
+            Padding = new Thickness(8, 4),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent
+        };
+        btnViewCard.IsCheckedChanged += (_, _) => { if (btnViewCard.IsChecked == true) { btnViewList.IsChecked = false; } };
+        btnViewList.IsCheckedChanged += (_, _) => { if (btnViewList.IsChecked == true) { btnViewCard.IsChecked = false; } };
+        var viewToggle = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 2
+        };
+        viewToggle.Children.Add(btnViewCard);
+        viewToggle.Children.Add(btnViewList);
+
+        // Theme row: label + fixed-width combo + view label + view combo
+        cmbTheme.HorizontalAlignment = HorizontalAlignment.Left;
+        cmbTheme.Width = 120;
+        var themeRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = L("Theme"),
+                    FontWeight = FontWeight.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center
+                },
+                cmbThemeWithIcon,
+                new TextBlock
+                {
+                    Text = L("DefaultView"),
+                    FontWeight = FontWeight.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 0, 0)
+                },
+                viewToggle
+            }
+        };
+
+        // Grid placement helper
+        static Control Placed(Control c, int col, int row)
+        {
+            Avalonia.Controls.Grid.SetColumn(c, col);
+            Avalonia.Controls.Grid.SetRow(c, row);
+            return c;
+        }
+
+        // Section helper
+        static StackPanel SectionHeader(string label) => new()
+        {
+            Spacing = 4,
+            Margin = new Thickness(0, 4, 0, 0),
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = label,
+                    FontSize = 10,
+                    FontWeight = FontWeight.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(160, 128, 128, 128)),
+                    LetterSpacing = 1.2
+                },
+                new Border
+                {
+                    Height = 1,
+                    Background = new SolidColorBrush(Color.FromArgb(40, 128, 128, 128))
+                }
+            }
+        };
+
         var tabAppearance = new TabItem
         {
-            Header = AppIcons.WithText(AppIcons.Monitor, L("TabAppearance")),
+            Header = AppIcons.WithText(AppIcons.Palette, L("TabAppearance")),
             Content = new StackPanel
             {
                 Margin = new Thickness(0, 12, 0, 0),
                 Spacing = 8,
                 Children =
                 {
-                    new TextBlock
+                    SectionHeader(L("SectionDisplay")),
+                    themeRow,
+                    new Grid
                     {
-                        Text = L("Theme"),
-                        FontWeight = FontWeight.Bold
+                        ColumnDefinitions = new ColumnDefinitions("*,*"),
+                        RowDefinitions = new RowDefinitions("Auto,Auto"),
+                        Children =
+                        {
+                            chkShowBars,
+                            Placed(chkShowNodes, 1, 0),
+                            Placed(chkShowPools, 0, 1),
+                            Placed(chkShowTags, 1, 1),
+                        }
                     },
-                    cmbThemeWithIcon,
-                    chkShowBars,
-                    AppIcons.WithText(AppIcons.Play, L("PowerButtons")),
+                    SectionHeader(L("PowerButtons")),
                     new Grid
                     {
                         ColumnDefinitions = new ColumnDefinitions("*,Auto"),
@@ -109,10 +228,12 @@ internal static class SettingsWindow
             Padding = new Thickness(6, 4),
             Margin = new Thickness(4, 0, 0, 0)
         };
+
         var viewerRow = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
+
         viewerRow.Add(txtViewerPath, 0);
         viewerRow.Add(btnBrowseViewer, 1);
 
@@ -130,12 +251,38 @@ internal static class SettingsWindow
             Padding = new Thickness(6, 4),
             Margin = new Thickness(4, 0, 0, 0)
         };
+
         var rdpRow = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto")
         };
+
         rdpRow.Add(txtRdpPath, 0);
         rdpRow.Add(btnBrowseRdp, 1);
+
+        var chkSpice = new CheckBox
+        {
+            Content = AppIcons.WithText(AppIcons.Spice, "SPICE"),
+            IsChecked = config.EnableSpice
+        };
+
+        var chkVnc = new CheckBox
+        {
+            Content = AppIcons.WithText(AppIcons.Vnc, "VNC"),
+            IsChecked = config.EnableVnc
+        };
+
+        var chkRdp = new CheckBox
+        {
+            Content = AppIcons.WithText(AppIcons.Rdp, "RDP"),
+            IsChecked = config.EnableRdp
+        };
+
+        var chkAgentPing = new CheckBox
+        {
+            Content = AppIcons.WithText(AppIcons.Agent, L("AgentPing")),
+            IsChecked = config.EnableAgentPing
+        };
 
         var tabConnectivity = new TabItem
         {
@@ -146,18 +293,23 @@ internal static class SettingsWindow
                 Spacing = 8,
                 Children =
                 {
-                    new TextBlock
+                    SectionHeader(L("HostProtocols")),
+                    new WrapPanel
                     {
-                        Text = L("SpiceViewerPath"),
-                        FontWeight = FontWeight.Bold
+                        Orientation = Orientation.Horizontal,
+                        ItemWidth = 160,
+                        Children = { chkSpice, chkVnc, chkRdp, chkAgentPing }
+                    },
+                    SectionHeader(L("SpiceViewerPath")),
+                    new HyperlinkButton
+                    {
+                        Content = "Download remote-viewer (spice-space.org)",
+                        NavigateUri = new Uri("https://www.spice-space.org/download.html"),
+                        FontSize = 11,
+                        Padding = new Thickness(0)
                     },
                     viewerRow,
-                    new TextBlock
-                    {
-                        Text = L("RdpClientPath"),
-                        FontWeight = FontWeight.Bold,
-                        Margin = new Thickness(0, 8, 0, 0)
-                    },
+                    SectionHeader(L("RdpClientPath")),
                     rdpRow,
                 }
             }
@@ -175,27 +327,35 @@ internal static class SettingsWindow
                 new TextBlock
                 {
                     Text = h == null
-                            ? ""
+                            ? string.Empty
                             : $"{h.Name}  ({h.Hosts})"
                 })
         };
 
         var btnAddHost = new Button
         {
-            Content = AppIcons.WithText(AppIcons.Add, L("Add")),
+            Content = AppIcons.Toolbar(AppIcons.Add),
+            Padding = new Thickness(6, 4),
             Margin = new Thickness(0, 0, 4, 0)
         };
+        Avalonia.Controls.ToolTip.SetTip(btnAddHost, L("Add"));
+
         var btnEditHost = new Button
         {
-            Content = AppIcons.WithText(AppIcons.Edit, L("Edit")),
+            Content = AppIcons.Toolbar(AppIcons.Edit),
+            Padding = new Thickness(6, 4),
             Margin = new Thickness(0, 0, 4, 0),
             IsEnabled = false
         };
+        Avalonia.Controls.ToolTip.SetTip(btnEditHost, L("Edit"));
+
         var btnDelHost = new Button
         {
-            Content = AppIcons.WithText(AppIcons.Delete, L("Delete")),
+            Content = AppIcons.Toolbar(AppIcons.Delete),
+            Padding = new Thickness(6, 4),
             IsEnabled = false
         };
+        Avalonia.Controls.ToolTip.SetTip(btnDelHost, L("Delete"));
 
         lstHosts.SelectionChanged += (_, _) =>
         {
@@ -224,12 +384,10 @@ internal static class SettingsWindow
 
         var btnSave = new Button
         {
-            Content = AppIcons.WithText(AppIcons.Save, L("Save"))
+            Content = AppIcons.Toolbar(AppIcons.Save),
+            Padding = new Thickness(6, 4)
         };
-        var btnCancel = new Button
-        {
-            Content = AppIcons.WithText(AppIcons.Close, L("Cancel"))
-        };
+        Avalonia.Controls.ToolTip.SetTip(btnSave, L("Save"));
 
         var btnRow = new StackPanel
         {
@@ -238,16 +396,17 @@ internal static class SettingsWindow
             Margin = new Thickness(16, 8),
             Spacing = 8
         };
-        btnRow.Children.Add(btnCancel);
         btnRow.Children.Add(btnSave);
 
         var dock = new DockPanel();
         Avalonia.Controls.DockPanel.SetDock(btnRow, Dock.Bottom);
+
         dock.Children.Add(btnRow);
         var tabControl = new TabControl
         {
             Margin = new Thickness(12, 12, 12, 0),
         };
+
         if (clustersOnly)
         {
             tabControl.Items.Add(tabClusters);
@@ -261,8 +420,7 @@ internal static class SettingsWindow
         }
         dock.Children.Add(tabControl);
 
-        Window? window = null;
-        window = new Window
+        var window = new Window
         {
             Title = L("SettingsWindowTitle"),
             Width = 500,
@@ -276,20 +434,15 @@ internal static class SettingsWindow
         async Task BrowseFile(TextBox target, string titleKey)
         {
             var topLevel = TopLevel.GetTopLevel(window);
-            if (topLevel == null)
-            {
-                return;
-            }
+            if (topLevel == null) { return; }
 
             var files = await topLevel.StorageProvider.OpenFilePickerAsync(new()
             {
                 Title = L(titleKey),
                 AllowMultiple = false
             });
-            if (files.Count > 0)
-            {
-                target.Text = files[0].Path.LocalPath;
-            }
+
+            if (files.Count > 0) { target.Text = files[0].Path.LocalPath; }
         }
 
         btnBrowseViewer.Click += async (_, _) => await BrowseFile(txtViewerPath, "SelectSpiceViewer");
@@ -297,10 +450,7 @@ internal static class SettingsWindow
 
         async Task EditHostAt(int idx)
         {
-            if (idx < 0 || idx >= config.Hosts.Count)
-            {
-                return;
-            }
+            if (idx < 0 || idx >= config.Hosts.Count) { return; }
 
             var dlg = HostEditWindow.Create(config.Hosts[idx]);
             dlg.Icon = MainWindow.AppIcon();
@@ -335,14 +485,10 @@ internal static class SettingsWindow
 
         btnDelHost.Click += (_, _) =>
         {
-            var idx = lstHosts.SelectedIndex;
-            if (idx < 0 || idx >= config.Hosts.Count)
-            {
-                return;
-            }
+            if (lstHosts.SelectedIndex < 0 || lstHosts.SelectedIndex >= config.Hosts.Count) { return; }
 
-            config.Hosts.RemoveAt(idx);
-            hostItems.RemoveAt(idx);
+            config.Hosts.RemoveAt(lstHosts.SelectedIndex);
+            hostItems.RemoveAt(lstHosts.SelectedIndex);
             VdiConfigManager.Save(config);
             onHostsChanged?.Invoke();
         };
@@ -351,25 +497,25 @@ internal static class SettingsWindow
         {
             config.ViewerPath = txtViewerPath.Text ?? string.Empty;
             config.RdpPath = txtRdpPath.Text ?? string.Empty;
-            config.Theme = cmbTheme.SelectedItem as string ?? "System";
+            config.Theme = cmbTheme.SelectedItem as string ?? VdiConfig.ThemeSystem;
             config.ShowBars = chkShowBars.IsChecked == true;
             config.ShowStartButton = chkShowStart.IsChecked == true;
             config.ShowShutdownButton = chkShowShutdown.IsChecked == true;
             config.ConfirmStart = chkConfirmStart.IsChecked == true;
             config.ConfirmShutdown = chkConfirmShutdown.IsChecked == true;
+            config.EnableSpice = chkSpice.IsChecked == true;
+            config.EnableVnc = chkVnc.IsChecked == true;
+            config.EnableRdp = chkRdp.IsChecked == true;
+            config.EnableAgentPing = chkAgentPing.IsChecked == true;
+            config.ShowNodes = chkShowNodes.IsChecked == true;
+            config.ShowPools = chkShowPools.IsChecked == true;
+            config.ShowTags = chkShowTags.IsChecked == true;
+            config.DefaultView = btnViewList.IsChecked == true ? VdiConfig.ViewList : VdiConfig.ViewCard;
             VdiConfigManager.Save(config);
 
-            var variant = config.Theme switch
-            {
-                "Light" => ThemeVariant.Light,
-                "Dark" => ThemeVariant.Dark,
-                _ => ThemeVariant.Default
-            };
-            Avalonia.Application.Current?.RequestedThemeVariant = variant;
+            Avalonia.Application.Current?.RequestedThemeVariant = config.ThemeVariant;
             window.Close();
         };
-
-        btnCancel.Click += (_, _) => window.Close();
 
         return window;
     }

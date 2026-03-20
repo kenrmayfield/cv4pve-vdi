@@ -31,8 +31,6 @@ internal static class UpdateChecker
 
             if (!SemVersion.TryParse(currentStr, SemVersionStyles.Any, out var currentVer)) { return null; }
 
-            var includePrerelease = currentVer.IsPrerelease;
-
             using var http = new HttpClient();
             http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("cv4pve-vdi", ApplicationHelper.Version));
             http.Timeout = TimeSpan.FromSeconds(10);
@@ -40,19 +38,15 @@ internal static class UpdateChecker
             var releases = await http.GetFromJsonAsync<List<GitHubRelease>>(ApiUrl, ct);
             if (releases is null) { return null; }
 
-            var candidate = releases
-                .Where(r => !r.Draft && (includePrerelease || !r.Prerelease) && !string.IsNullOrEmpty(r.TagName))
-                .Select(r => (Release: r, Ver: ParseVer(r.TagName!)))
-                .Where(x => x.Ver is not null)
-                .OrderByDescending(x => x.Ver!, SemVersion.PrecedenceComparer)
-                .FirstOrDefault();
+            var (Release, Ver) = releases.Where(r => !r.Draft && (currentVer.IsPrerelease || !r.Prerelease)
+                                                        && !string.IsNullOrEmpty(r.TagName))
+                                         .Select(r => (Release: r, Ver: ParseVer(r.TagName!)))
+                                         .Where(x => x.Ver is not null)
+                                         .OrderByDescending(x => x.Ver!, SemVersion.PrecedenceComparer)
+                                         .FirstOrDefault();
 
-            if (candidate.Release is null) { return null; }
-
-            if (currentVer.ComparePrecedenceTo(candidate.Ver!) < 0)
-            {
-                return (candidate.Release.TagName, candidate.Release.HtmlUrl ?? string.Empty);
-            }
+            if (Release is null) { return null; }
+            if (currentVer.ComparePrecedenceTo(Ver) < 0) { return (Release.TagName, Release.HtmlUrl ?? string.Empty); }
         }
         catch { /* ignore network errors */ }
 
@@ -75,8 +69,7 @@ internal static class UpdateChecker
                 var result = await CheckAsync(ct);
                 if (result.HasValue)
                 {
-                    await Dispatcher.UIThread.InvokeAsync(
-                        () => onNewVersion(result.Value.Version, result.Value.Url));
+                    await Dispatcher.UIThread.InvokeAsync(() => onNewVersion(result.Value.Version, result.Value.Url));
                 }
 
                 await Task.Delay(TimeSpan.FromHours(12), ct).ContinueWith(_ => { });

@@ -3,33 +3,27 @@
  * SPDX-License-Identifier: MIT
  */
 
+using System.Text.RegularExpressions;
 using Corsinvest.ProxmoxVE.Api.Extension;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Cluster;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
 using Corsinvest.ProxmoxVE.Vdi.Services;
-using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 using Corsinvest.ProxmoxVE.Vdi.UI.Models;
 
 namespace Corsinvest.ProxmoxVE.Vdi.UI;
 
 internal partial class MainWindow
 {
-    internal async Task RefreshAsync(Button? btnRefresh = null, ToggleButton? btnAutoRef = null)
+    internal async Task RefreshAsync()
     {
-        if (_isRefreshing)
-        {
-            return;
-        }
+        if (_isRefreshing) { return; }
 
         _isRefreshing = true;
 
-        btnRefresh?.IsEnabled = false;
-        btnAutoRef?.IsEnabled = false;
-        if (_sidebar != null) _sidebar.IsEnabled = false;
+        _toolbar?.IsEnabled = false;
 
         _progressBar.IsVisible = true;
         _progressBar.Value = 0;
-        _lblStatus.Text = L("Loading");
 
         try
         {
@@ -46,6 +40,7 @@ internal partial class MainWindow
             _progressBar.Value = 10;
 
             // 2. cluster resources
+            try { _pveVersion = (await _client.Version.GetAsync())?.Version ?? string.Empty; } catch { }
             var resources = await _client.Cluster.Resources.GetAsync();
 
             var nodes = resources.Where(r => r.ResourceType == ClusterResourceType.Node)
@@ -80,13 +75,12 @@ internal partial class MainWindow
                 _allRows.Add(new ResourceRow(item, false, false, null, false, privs.Contains("Sys.Console"), string.Empty));
             }
 
-            var lxcVms = vms.Where(v => v.VmType == VmType.Lxc).ToList();
-            foreach (var item in lxcVms)
+            foreach (var item in vms.Where(v => v.VmType == VmType.Lxc).ToList())
             {
                 var privs = EffectivePrivs($"/vms/{item.VmId}").ToHashSet();
                 var canPower = privs.Contains("VM.PowerMgmt");
                 var canConsole = privs.Contains("VM.Console");
-                var hasSpice = item.IsRunning && canConsole;
+                var hasSpice = _config.EnableSpice && item.IsRunning && canConsole;
                 _allRows.Add(new ResourceRow(item, hasSpice, false, null, canPower, canConsole, "linux"));
             }
 
@@ -111,7 +105,7 @@ internal partial class MainWindow
                 var chk = new CheckBox
                 {
                     Tag = item.Node,
-                    Content = AppIcons.WithText(AppIcons.Server, item.Node!),
+                    Content = item.Node,
                     IsChecked = false
                 };
                 chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterNodes, item.Node!, chk.IsChecked == true);
@@ -124,7 +118,10 @@ internal partial class MainWindow
 
             // 4. QEMU — parallel chunks of 5, progressive
             var qemuVms = vms.Where(v => v.VmType == VmType.Qemu).ToList();
-            var qemuToCheck = qemuVms.Where(v => v.IsRunning || !_spiceConfigCache.ContainsKey(v.VmId)).ToList();
+            // SPICE detection requires API calls; VNC is always available (no API needed)
+            var qemuToCheck = _config.EnableSpice
+                                ? qemuVms.Where(v => v.IsRunning || !_spiceConfigCache.ContainsKey(v.VmId)).ToList()
+                                : [];
             var totalQemu = qemuToCheck.Count;
             var doneQemu = 0;
 
@@ -135,9 +132,10 @@ internal partial class MainWindow
                 var canPower = privs.Contains("VM.PowerMgmt");
                 var canConsole = privs.Contains("VM.Console");
                 var osType = _osTypeCache.GetValueOrDefault(item.VmId, string.Empty);
-                var hasSpice = _spiceConfigCache.GetValueOrDefault(item.VmId, false);
+                var hasSpice = _config.EnableSpice && _spiceConfigCache.GetValueOrDefault(item.VmId, false);
                 var (hasRdp, rdpIp) = _rdpCache.GetValueOrDefault(item.VmId);
-                _allRows.Add(new ResourceRow(item, hasSpice, hasRdp, rdpIp, canPower, canConsole, osType));
+                var features = _featuresCache.GetValueOrDefault(item.VmId, SpiceFeatures.None);
+                _allRows.Add(new ResourceRow(item, hasSpice, hasRdp, rdpIp, canPower, canConsole, osType, features));
             }
 
             UpdateStats(nodes.Count);
@@ -151,23 +149,73 @@ internal partial class MainWindow
                     {
                         bool hasSpice;
                         string osType;
+                        SpiceFeatures features;
 
                         if (v.IsRunning)
                         {
+                            var vm = _client.Nodes[v.Node].Qemu[v.VmId];
+
+                            static async Task<bool> PingWithTimeout(Task<Api.Result> pingTask, int timeoutMs)
+                            {
+                                var timeout = Task.Delay(timeoutMs);
+                                var completed = await Task.WhenAny(pingTask, timeout);
+                                if (completed == timeout) { return false; }
+                                return pingTask.Result?.IsSuccessStatusCode == true;
+                            }
+
                             if (_osTypeCache.ContainsKey(v.VmId))
                             {
-                                var st = await _client.Nodes[v.Node].Qemu[v.VmId].Status.Current.GetAsync();
-                                hasSpice = st?.Spice == true;
+                                var stTask = vm.Status.Current.GetAsync();
+                                await stTask;
+                                hasSpice = stTask.Result?.Spice == true;
                                 osType = _osTypeCache[v.VmId];
+                                var cached = _featuresCache.GetValueOrDefault(v.VmId, SpiceFeatures.None);
+
+                                bool agentRunning;
+                                if (!_config.EnableAgentPing)
+                                {
+                                    agentRunning = false;
+                                }
+                                else if (_agentPingCache.TryGetValue(v.VmId, out var pingEntry)
+                                      && (DateTime.Now - pingEntry.CheckedAt).TotalSeconds < AgentPingCacheSeconds)
+                                {
+                                    agentRunning = pingEntry.Running;
+                                }
+                                else
+                                {
+                                    agentRunning = await PingWithTimeout(vm.Agent.Ping.Ping(), AgentPingTimeoutMs);
+                                    _agentPingCache[v.VmId] = (agentRunning, DateTime.Now);
+                                }
+
+                                features = cached with { AgentRunning = agentRunning };
                             }
                             else
                             {
-                                var stTask = _client.Nodes[v.Node].Qemu[v.VmId].Status.Current.GetAsync();
-                                var cfgTask = _client.Nodes[v.Node].Qemu[v.VmId].Config.GetAsync();
+                                var stTask = vm.Status.Current.GetAsync();
+                                var cfgTask = vm.Config.GetAsync();
                                 await Task.WhenAll(stTask, cfgTask);
                                 hasSpice = stTask.Result?.Spice == true;
-                                osType = cfgTask.Result?.OsType?.ToLowerInvariant() ?? string.Empty;
+                                var cfg = cfgTask.Result;
+                                osType = cfg?.OsType?.ToLowerInvariant() ?? string.Empty;
                                 _osTypeCache[v.VmId] = osType;
+                                bool agentRunning;
+                                if (!_config.EnableAgentPing)
+                                {
+                                    agentRunning = false;
+                                }
+                                else if (_agentPingCache.TryGetValue(v.VmId, out var pingEntry)
+                                            && (DateTime.Now - pingEntry.CheckedAt).TotalSeconds < AgentPingCacheSeconds)
+                                {
+                                    agentRunning = pingEntry.Running;
+                                }
+                                else
+                                {
+                                    agentRunning = await PingWithTimeout(vm.Agent.Ping.Ping(), AgentPingTimeoutMs);
+                                    _agentPingCache[v.VmId] = (agentRunning, DateTime.Now);
+                                }
+
+                                features = BuildFeatures(cfg, agentRunning);
+                                _featuresCache[v.VmId] = features;
                             }
                         }
                         else
@@ -178,6 +226,8 @@ internal partial class MainWindow
                             osType = cfg?.OsType?.ToLowerInvariant() ?? string.Empty;
                             _spiceConfigCache[v.VmId] = hasSpice;
                             _osTypeCache[v.VmId] = osType;
+                            features = BuildFeatures(cfg, false);
+                            _featuresCache[v.VmId] = features;
                         }
 
                         // update existing row in _allRows
@@ -187,11 +237,18 @@ internal partial class MainWindow
                             if (idx >= 0)
                             {
                                 var old = _allRows[idx];
-                                _allRows[idx] = new ResourceRow(v, hasSpice, old.HasRdp, old.RdpIp, old.CanPower, old.CanConsole, osType);
+                                _allRows[idx] = new ResourceRow(v,
+                                                                hasSpice,
+                                                                old.HasRdp,
+                                                                old.RdpIp,
+                                                                old.CanPower,
+                                                                old.CanConsole,
+                                                                osType,
+                                                                features);
                             }
                         });
                     }
-                    catch { /* lascia il row invariato */ }
+                    catch { }
                 }));
 
                 doneQemu += chunk.Length;
@@ -202,8 +259,10 @@ internal partial class MainWindow
 
             _progressBar.Value = 80;
 
-            // 5. RDP — only running QEMU not cached, chunks of 5
-            var rdpToCheck = qemuVms.Where(v => v.IsRunning && !_rdpCache.ContainsKey(v.VmId)).ToList();
+            // 5. RDP — only if enabled for this host, only running QEMU not cached, chunks of 5
+            var rdpToCheck = _config.EnableRdp
+                                ? qemuVms.Where(v => v.IsRunning && !_rdpCache.ContainsKey(v.VmId)).ToList()
+                                : [];
             var totalRdp = rdpToCheck.Count;
             var doneRdp = 0;
 
@@ -219,10 +278,11 @@ internal partial class MainWindow
                             _rdpCache[v.VmId] = (false, null);
                             return;
                         }
+
                         var hasRdp = await VmService.IsRdpOpenAsync(ip);
                         _rdpCache[v.VmId] = (hasRdp, hasRdp
-                            ? ip
-                            : null);
+                                                ? ip
+                                                : null);
 
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
@@ -230,9 +290,13 @@ internal partial class MainWindow
                             if (idx >= 0)
                             {
                                 var old = _allRows[idx];
-                                _allRows[idx] = new ResourceRow(v, old.CanSpice, hasRdp, hasRdp
-                                    ? ip
-                                    : null, old.CanPower, old.CanConsole, old.OsType);
+                                _allRows[idx] = new ResourceRow(v,
+                                                                old.CanSpice,
+                                                                hasRdp,
+                                                                hasRdp ? ip : null,
+                                                                old.CanPower,
+                                                                old.CanConsole,
+                                                                old.OsType);
                             }
                         });
                     }
@@ -244,56 +308,74 @@ internal partial class MainWindow
                 ApplyFilter();
             }
 
-            // rebuild pool filter — only pools of VDI-actionable VMs
-            var allPools = _allRows
-                .Where(r => r.HasAnyVdiAction && !string.IsNullOrEmpty(r.Pool))
-                .Select(r => r.Pool)
-                .Distinct()
-                .OrderBy(p => p)
-                .ToList();
-            var knownPools = _poolFilters.Children.OfType<CheckBox>().Select(c => c.Tag as string).ToHashSet();
-            foreach (var pool in allPools.Where(p => !knownPools.Contains(p)))
+            // rebuild pool filter — only if enabled and only pools of VDI-actionable VMs
+            if (_config.ShowPools)
             {
-                var chk = new CheckBox
+                var allPools = _allRows
+                    .Where(r => r.HasAnyVdiAction && !string.IsNullOrEmpty(r.Pool))
+                    .Select(r => r.Pool)
+                    .Distinct()
+                    .OrderBy(p => p)
+                    .ToList();
+                var knownPools = _poolFilters.Children.OfType<CheckBox>().Select(c => c.Tag as string).ToHashSet();
+                foreach (var pool in allPools.Where(p => !knownPools.Contains(p)))
                 {
-                    Tag = pool,
-                    Content = pool,
-                    IsChecked = false
-                };
-                chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterPools, pool, chk.IsChecked == true);
-                _poolFilters.Children.Add(chk);
+                    var chk = new CheckBox
+                    {
+                        Tag = pool,
+                        Content = pool,
+                        IsChecked = false
+                    };
+                    chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterPools, pool, chk.IsChecked == true);
+                    _poolFilters.Children.Add(chk);
+                }
             }
 
-            // rebuild tag filters — only tags of VDI-actionable VMs
-            var allTags = _allRows.Where(r => r.HasAnyVdiAction).SelectMany(r => r.Tags).Distinct().OrderBy(t => t).ToList();
-            var existingTags = _tagFilters.Children.OfType<CheckBox>().Select(c => c.Tag as string).ToHashSet();
-            foreach (var tag in allTags.Where(t => !existingTags.Contains(t)))
+            // rebuild tag filters — only if enabled and only tags of VDI-actionable VMs
+            if (_config.ShowTags)
             {
-                var chk = new CheckBox
+                var allTags = _allRows.Where(r => r.HasAnyVdiAction).SelectMany(r => r.Tags).Distinct().OrderBy(t => t).ToList();
+                var existingTags = _tagFilters.Children.OfType<CheckBox>().Select(c => c.Tag as string).ToHashSet();
+                foreach (var tag in allTags.Where(t => !existingTags.Contains(t)))
                 {
-                    Tag = tag,
-                    Content = AppIcons.WithText(AppIcons.Tag, tag),
-                    IsChecked = false
-                };
-                chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterTags, tag, chk.IsChecked == true);
-                _tagFilters.Children.Add(chk);
+                    var chk = new CheckBox
+                    {
+                        Tag = tag,
+                        Content = tag,
+                        IsChecked = false
+                    };
+                    chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterTags, tag, chk.IsChecked == true);
+                    _tagFilters.Children.Add(chk);
+                }
             }
 
             ApplyFilter();
+            _toolbar?.IsEnabled = true;
             _progressBar.Value = 100;
-            _lblStatus.Text = $"{DateTime.Now:HH:mm:ss}";
         }
         catch (Exception ex)
         {
-            _lblStatus.Text = $"{L("ErrorPrefix")}{ex.Message}";
+            ShowToast($"{L("ErrorPrefix")}{ex.Message}", NotificationSeverity.Error);
         }
         finally
         {
             _progressBar.IsVisible = false;
             _isRefreshing = false;
-            btnRefresh?.IsEnabled = true;
-            btnAutoRef?.IsEnabled = true;
-            if (_sidebar != null) _sidebar.IsEnabled = true;
+            _toolbar?.IsEnabled = true;
+        }
+    }
+
+    internal async Task LaunchVncAsync(ResourceRow row)
+    {
+        var err = await RemoteViewerService.LaunchVncAsync(_client,
+                                                           row.Resource.Node,
+                                                           row.Resource.VmId,
+                                                           row.VmType,
+                                                           _config,
+                                                           _client.PVEAuthCookie);
+        if (!string.IsNullOrEmpty(err))
+        {
+            ShowToast($"{L("ErrorPrefix")}{err}", NotificationSeverity.Error);
         }
     }
 
@@ -302,12 +384,10 @@ internal partial class MainWindow
         string err;
         if (row.ResourceType == ClusterResourceType.Node)
         {
-            _lblStatus.Text = $"{L("SpiceShellPrefix")}{row.Name}...";
             err = await RemoteViewerService.LaunchNodeSpiceAsync(_client, row.Resource.Node, _config, _host);
         }
         else
         {
-            _lblStatus.Text = $"{L("SpicePrefix")}{row.Name}...";
             err = await RemoteViewerService.LaunchSpiceAsync(_client,
                                                              row.Resource.Node,
                                                              row.Resource.VmId,
@@ -316,9 +396,23 @@ internal partial class MainWindow
                                                              _host);
         }
 
-        _lblStatus.Text = string.IsNullOrEmpty(err)
-                            ? L("SpiceLaunched")
-                            : $"{L("ErrorPrefix")}{err}";
+        if (!string.IsNullOrEmpty(err))
+        {
+            ShowToast($"{L("ErrorPrefix")}{err}", NotificationSeverity.Error);
+        }
+    }
+
+    private static SpiceFeatures BuildFeatures(VmConfigQemu? cfg, bool agentRunning)
+    {
+        if (cfg is null) { return SpiceFeatures.None; }
+
+        var audio = cfg.Audio0?.Contains("driver=spice") == true;
+        var usbRedirect = cfg.ExtensionData
+                             ?.Where(kv => UsbRegex().IsMatch(kv.Key))
+                             .Any(kv => kv.Value?.ToString()?.Contains("host=spice") == true) == true;
+
+        var clipboard = cfg.SpiceEnhancements?.Contains("clipboard") == true;
+        return new SpiceFeatures(audio, usbRedirect, cfg.AgentEnabled, agentRunning, clipboard);
     }
 
     internal async Task<bool> ConfirmAsync(string message)
@@ -352,11 +446,13 @@ internal partial class MainWindow
             tcs.TrySetResult(true);
             dlg.Close();
         };
+
         btnNo.Click += (_, _) =>
         {
             tcs.TrySetResult(false);
             dlg.Close();
         };
+
         dlg.Content = new StackPanel
         {
             Margin = new Thickness(20),
@@ -382,4 +478,6 @@ internal partial class MainWindow
         return await tcs.Task;
     }
 
+    [GeneratedRegex(@"^usb\d+$")]
+    private static partial Regex UsbRegex();
 }

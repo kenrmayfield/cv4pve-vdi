@@ -5,6 +5,7 @@
 
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Cluster;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
+using Corsinvest.ProxmoxVE.Vdi.Services;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 using Corsinvest.ProxmoxVE.Vdi.UI.Models;
 
@@ -12,7 +13,175 @@ namespace Corsinvest.ProxmoxVE.Vdi.UI;
 
 internal partial class MainWindow
 {
+    private static void OpenUrl(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { /* ignore */ }
+    }
+
     private static IBrush ThemeBorderBrush() => AppColors.BorderBrush(AppColors.IsDark);
+
+    internal void BuildAgentBadge(ResourceRow row, StackPanel parent)
+    {
+        if (!row.Features.AgentConfigured)
+        {
+            return;
+        }
+
+        string tooltip;
+        Color color;
+        double opacity;
+
+        if (!_config.EnableAgentPing)
+        {
+            tooltip = L("BadgeAgentUnknown");
+            color = Colors.Gray;
+            opacity = 0.5;
+        }
+        else if (row.Features.AgentRunning)
+        {
+            tooltip = L("BadgeAgentRunning");
+            color = AppColors.Running;
+            opacity = 0.9;
+        }
+        else
+        {
+            tooltip = L("BadgeAgentStopped");
+            color = AppColors.Shutdown;
+            opacity = 0.9;
+        }
+
+        var icon = new PathIcon
+        {
+            Data = Geometry.Parse(AppIcons.Agent),
+            Width = 11,
+            Height = 11,
+            Foreground = new SolidColorBrush(color),
+            Opacity = opacity,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Avalonia.Controls.ToolTip.SetTip(icon, tooltip);
+        parent.Children.Add(icon);
+    }
+
+    internal static Control BuildFeatureBadges(ResourceRow row)
+    {
+        if (!row.Features.Audio && !row.Features.UsbRedirect && !row.Features.Clipboard)
+        {
+            return new Border();
+        }
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+        void AddBadge(string icon, string tooltip, Color color, double opacity = 0.9)
+        {
+            var pathIcon = new PathIcon
+            {
+                Data = Geometry.Parse(icon),
+                Width = 12,
+                Height = 12,
+                Foreground = new SolidColorBrush(color),
+                Opacity = opacity
+            };
+            Avalonia.Controls.ToolTip.SetTip(pathIcon, tooltip);
+            panel.Children.Add(pathIcon);
+        }
+
+        if (row.Features.Audio) { AddBadge(AppIcons.Audio, L("BadgeAudioSpice"), AppColors.Running); }
+        if (row.Features.UsbRedirect) { AddBadge(AppIcons.Usb, L("BadgeUsbRedirect"), AppColors.Running); }
+        if (row.Features.Clipboard) { AddBadge(AppIcons.Clipboard2, L("BadgeClipboard"), AppColors.Running); }
+
+        return panel;
+    }
+
+    private static Button ActionButton(string icon, string tooltip, Thickness padding, Color? foreground = null)
+    {
+        var btn = new Button
+        {
+            Content = AppIcons.Row(icon, foreground.HasValue ? new SolidColorBrush(foreground.Value) : null),
+            Padding = padding,
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0)
+        };
+        Avalonia.Controls.ToolTip.SetTip(btn, tooltip);
+        return btn;
+    }
+
+    internal void AddActionButtons(StackPanel panel, ResourceRow row, bool isCard)
+    {
+        var padding = isCard
+                        ? new Thickness(8, 6)
+                        : new Thickness(4, 2);
+
+        if (_config.ShowStartButton && row.CanPower && !row.Resource.IsRunning)
+        {
+            var btn = ActionButton(AppIcons.Play, L("Start"), padding, AppColors.Running);
+            btn.Click += async (_, _) =>
+            {
+                if (_config.ConfirmStart && !await ConfirmAsync(string.Format(L("ConfirmStart"), row.Name)))
+                {
+                    return;
+                }
+
+                await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Start);
+                if (_btnAutoRef != null && _btnAutoRef.IsChecked != true)
+                {
+                    _btnAutoRef.IsChecked = true;
+                }
+                await RefreshAsync();
+            };
+            panel.Children.Add(btn);
+        }
+
+        if (_config.ShowShutdownButton && row.CanPower && row.Resource.IsRunning)
+        {
+            var btn = ActionButton(AppIcons.Stop, L("Shutdown"), padding, AppColors.Shutdown);
+            btn.Click += async (_, _) =>
+            {
+                if (_config.ConfirmShutdown && !await ConfirmAsync(string.Format(L("ConfirmShutdown"), row.Name)))
+                {
+                    return;
+                }
+
+                await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Shutdown);
+                if (_btnAutoRef != null && _btnAutoRef.IsChecked != true)
+                {
+                    _btnAutoRef.IsChecked = true;
+                }
+                await RefreshAsync();
+            };
+            panel.Children.Add(btn);
+        }
+
+        if (row.CanSpice)
+        {
+            var btn = ActionButton(AppIcons.Spice, L("Spice"), padding);
+            btn.Click += async (_, _) => await LaunchSpiceAsync(row);
+            panel.Children.Add(btn);
+        }
+
+        if (_config.EnableVnc && row.CanVnc)
+        {
+            var btn = ActionButton(AppIcons.Vnc, L("Vnc"), padding);
+            btn.Click += async (_, _) => await LaunchVncAsync(row);
+            panel.Children.Add(btn);
+        }
+
+        if (row.HasRdp && row.RdpIp is not null)
+        {
+            var btn = ActionButton(AppIcons.Rdp, string.Format(L("StatusRdpTooltip"), row.RdpIp), padding);
+            btn.Click += (_, _) =>
+            {
+                var err = VmService.LaunchRdp(row.RdpIp, _config.RdpPath);
+                if (!string.IsNullOrEmpty(err))
+                {
+                    ShowToast($"{L("ErrorPrefix")}{err}", NotificationSeverity.Error);
+                }
+            };
+            panel.Children.Add(btn);
+        }
+    }
 
     private Color GetTagColor(string tag)
     {
@@ -29,30 +198,19 @@ internal partial class MainWindow
         return Color.FromRgb((byte)(h & 0xFF), (byte)((h >> 8) & 0xFF), (byte)((h >> 16) & 0x7F | 0x40));
     }
 
-    private static Ellipse BuildStatusDot(ResourceRow r) => new()
+    private static Ellipse BuildStatusDot(ResourceRow row)
+        => new()
+        {
+            Width = 8,
+            Height = 8,
+            Fill = new SolidColorBrush(row.IsActive
+                    ? AppColors.Running
+                    : AppColors.Stopped),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+    private static Border BuildTypeBadge(ResourceRow row)
     {
-        Width = 8,
-        Height = 8,
-        Fill = new SolidColorBrush(r.IsActive
-            ? AppColors.Running
-            : AppColors.Stopped),
-        VerticalAlignment = VerticalAlignment.Center
-    };
-
-    private static Border BuildTypeBadge(ResourceRow r)
-    {
-        var iconData = r.ResourceType == ClusterResourceType.Node
-                     ? AppIcons.Server
-                     : r.VmType == VmType.Qemu
-                         ? AppIcons.Vm
-                         : AppIcons.Ct;
-
-        var label = r.ResourceType == ClusterResourceType.Node
-                  ? L("TypeNode")
-                  : r.VmType == VmType.Qemu
-                      ? L("TypeVm")
-                      : L("TypeCt");
-
         var stack = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -62,14 +220,22 @@ internal partial class MainWindow
             {
                 new PathIcon
                 {
-                    Data = Geometry.Parse(iconData),
+                    Data = Geometry.Parse(row.ResourceType == ClusterResourceType.Node
+                                            ? AppIcons.Server
+                                            : row.VmType == VmType.Qemu
+                                                ? AppIcons.Vm
+                                                : AppIcons.Ct),
                     Width = 12,
                     Height = 12,
                     Foreground = Brushes.White
                 },
                 new TextBlock
                 {
-                    Text = label,
+                    Text = row.ResourceType == ClusterResourceType.Node
+                            ? L("TypeNode")
+                            : row.VmType == VmType.Qemu
+                                ? L("TypeVm")
+                                : L("TypeCt"),
                     FontSize = 11,
                     Foreground = Brushes.White,
                     VerticalAlignment = VerticalAlignment.Center
@@ -77,16 +243,16 @@ internal partial class MainWindow
             }
         };
 
-        if (r.ResourceType != ClusterResourceType.Node && !string.IsNullOrEmpty(r.OsType))
+        if (row.ResourceType != ClusterResourceType.Node && !string.IsNullOrEmpty(row.OsType))
         {
             stack.Children.Add(new PathIcon
             {
-                Data = Geometry.Parse(r.OsType.StartsWith("win")
-                    ? AppIcons.Windows
-                    : AppIcons.Linux),
+                Data = Geometry.Parse(row.OsType.StartsWith("win")
+                        ? AppIcons.Windows
+                        : AppIcons.Linux),
                 Width = 12,
                 Height = 12,
-                Foreground = new SolidColorBrush(AppColors.OsBrushColor(r.OsType)),
+                Foreground = new SolidColorBrush(AppColors.OsBrushColor(row.OsType)),
                 Margin = new Thickness(2, 0, 0, 0)
             });
         }
@@ -142,21 +308,11 @@ internal partial class MainWindow
 
     private StackPanel BuildNodeHeader(string nodeName, ResourceRow? nodeRow)
     {
-        var dotColor = nodeRow?.IsActive == true
-            ? AppColors.Running
-            : AppColors.Stopped;
         var header = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 8
         };
-        header.Children.Add(new Ellipse
-        {
-            Width = 8,
-            Height = 8,
-            Fill = new SolidColorBrush(dotColor),
-            VerticalAlignment = VerticalAlignment.Center
-        });
 
         header.Children.Add(new TextBlock
         {
@@ -218,7 +374,7 @@ internal partial class MainWindow
             }
         }
 
-        var current = "";
+        var current = string.Empty;
         foreach (var part in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
         {
             current += "/" + part;
@@ -250,8 +406,7 @@ internal partial class MainWindow
             var ft = _filterText.Trim().ToLowerInvariant();
             filtered = filtered.Where(r => r.Name.Contains(ft, StringComparison.OrdinalIgnoreCase)
                                             || r.IdDisplay.Contains(ft, StringComparison.OrdinalIgnoreCase)
-                                            || r.Description.Contains(ft, StringComparison.OrdinalIgnoreCase)
-                                            || r.Tags.Any(t => t.Contains(ft, StringComparison.OrdinalIgnoreCase)));
+                                            || r.Description.Contains(ft, StringComparison.OrdinalIgnoreCase));
         }
 
         var filterByStatus = _chkRunning.IsChecked == true || _chkStopped.IsChecked == true;

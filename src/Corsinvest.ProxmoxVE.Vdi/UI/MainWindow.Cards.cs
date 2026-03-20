@@ -4,8 +4,6 @@
  */
 
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Cluster;
-using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
-using Corsinvest.ProxmoxVE.Vdi.Services;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 using Corsinvest.ProxmoxVE.Vdi.UI.Models;
 using AGrid = Avalonia.Controls.Grid;
@@ -54,18 +52,8 @@ internal partial class MainWindow
         };
     }
 
-    private Control BuildCard(ResourceRow r)
+    private Control BuildCard(ResourceRow row)
     {
-        var dot = BuildStatusDot(r);
-        var statusLbl = new TextBlock
-        {
-            Text = r.StatusDisplay,
-            FontSize = 11,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        var typeBadge = BuildTypeBadge(r);
-
         // top row: name(*) | badge(Auto)
         var nameRow = new AGrid();
         nameRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
@@ -73,45 +61,58 @@ internal partial class MainWindow
 
         nameRow.Add(new TextBlock
         {
-            Text = r.Name,
+            Text = row.Name,
             FontWeight = FontWeight.SemiBold,
             FontSize = 13,
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center
         }, 0);
-        nameRow.Add(typeBadge, 1);
+        nameRow.Add(BuildTypeBadge(row), 1);
 
         // ID + Pool row below name
-        Control idRow = new Border();
-        if (!string.IsNullOrEmpty(r.IdDisplay))
-        {
-            var idText = string.IsNullOrEmpty(r.Pool)
-                ? $"Id: {r.IdDisplay}"
-                : $"Id: {r.IdDisplay}  ·  {r.Pool}";
-            idRow = new TextBlock
-            {
-                Text = idText,
-                FontSize = 11,
-                Margin = new Thickness(0, 1, 0, 0),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            }.Secondary();
-        }
+        Control idRow = string.IsNullOrEmpty(row.IdDisplay)
+                        ? new Border()
+                        : new TextBlock
+                        {
+                            Text = _config.ShowPools && !string.IsNullOrEmpty(row.Pool)
+                                        ? $"Id: {row.IdDisplay}  ·  {row.Pool}"
+                                        : $"Id: {row.IdDisplay}",
+                            FontSize = 11,
+                            Margin = new Thickness(0, 1, 0, 0),
+                            TextTrimming = TextTrimming.CharacterEllipsis
+                        }.Secondary();
 
         var statusRow = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 5,
-            Children = { dot, statusLbl }
+            Children =
+            {
+                BuildStatusDot(row),
+                new TextBlock
+                {
+                    Text = row.StatusDisplay,
+                    FontSize = 11,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            }
         };
 
-        var tagsPanel = BuildTagsPanel(r.Tags);
+        BuildAgentBadge(row, statusRow);
+
+        Control tagsPanel = _config.ShowTags
+                                ? BuildTagsPanel(row.Tags)
+                                : new Border();
+
+        var featureBadges = BuildFeatureBadges(row);
 
         Control cpuSection = new Border();
         Control ramSection = new Border();
-        if (_config.ShowBars && (r.ResourceType != ClusterResourceType.Node || r.IsActive))
+
+        if (_config.ShowBars && (row.ResourceType != ClusterResourceType.Node || row.IsActive))
         {
-            cpuSection = BuildMiniBar("CPU", r.CpuPct, r.CpuDisplay);
-            ramSection = BuildMiniBar("RAM", r.MemoryPct, r.MemoryDisplay);
+            cpuSection = BuildMiniBar("CPU", row.CpuPct, row.CpuDisplay);
+            ramSection = BuildMiniBar("RAM", row.MemoryPct, row.MemoryDisplay);
         }
 
         var btnPanel = new StackPanel
@@ -119,51 +120,33 @@ internal partial class MainWindow
             Orientation = Orientation.Horizontal,
             Spacing = 6
         };
-        AddActionButtons(btnPanel, r, isCard: true);
 
         // Fixed-row grid for alignment across cards:
-        // 0=name, 1=id, 2=status, 3=tags(*), 4=cpu, 5=ram, 6=buttons
+        // 0=name, 1=id, 2=status, 3=features, 4=tags(*), 5=cpu, 6=ram, 7=buttons
         var bodyGrid = new AGrid();
         bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 0 name
         bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 1 id
         bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 2 status
-        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));  // 3 tags
-        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 4 cpu
-        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 5 ram
-        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 6 buttons
+        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 3 features
+        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));  // 4 tags
+        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 5 cpu
+        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 6 ram
+        bodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));  // 7 buttons
 
         nameRow.Margin = new Thickness(0, 0, 0, 4);
         idRow.Margin = new Thickness(0, 0, 0, 4);
         statusRow.Margin = new Thickness(0, 0, 0, 4);
+        featureBadges.Margin = new Thickness(0, 0, 0, 4);
         tagsPanel.Margin = new Thickness(0, 0, 0, 4);
         cpuSection.Margin = new Thickness(0, 0, 0, 2);
 
         bodyGrid.Add(nameRow, 0, 0);
         bodyGrid.Add(idRow, 0, 1);
         bodyGrid.Add(statusRow, 0, 2);
-        bodyGrid.Add(tagsPanel, 0, 3);
-        bodyGrid.Add(cpuSection, 0, 4);
-        bodyGrid.Add(ramSection, 0, 5);
-
-        if (btnPanel.Children.Count > 0)
-        {
-            var btnSection = new StackPanel
-            {
-                Spacing = 6,
-                Margin = new Thickness(0, 8, 0, 0),
-                Children =
-                {
-                    new Border
-                    {
-                        BorderThickness = new Thickness(0, 1, 0, 0),
-                        Opacity = 0.15,
-                        Margin = new Thickness(0, 0, 0, 6)
-                    },
-                    btnPanel
-                }
-            };
-            bodyGrid.Add(btnSection, 0, 6);
-        }
+        bodyGrid.Add(featureBadges, 0, 3);
+        bodyGrid.Add(tagsPanel, 0, 4);
+        bodyGrid.Add(cpuSection, 0, 5);
+        bodyGrid.Add(ramSection, 0, 6);
 
         var card = new Border
         {
@@ -184,6 +167,28 @@ internal partial class MainWindow
             },
             Child = bodyGrid
         };
+
+        AddActionButtons(btnPanel, row, isCard: true);
+
+        if (btnPanel.Children.Count > 0)
+        {
+            var btnSection = new StackPanel
+            {
+                Spacing = 6,
+                Margin = new Thickness(0, 8, 0, 0),
+                Children =
+                {
+                    new Border
+                    {
+                        BorderThickness = new Thickness(0, 1, 0, 0),
+                        Opacity = 0.15,
+                        Margin = new Thickness(0, 0, 0, 6)
+                    },
+                    btnPanel
+                }
+            };
+            bodyGrid.Add(btnSection, 0, 7);
+        }
 
         card.GetObservable(Avalonia.Input.InputElement.IsPointerOverProperty)
             .Subscribe(over => card.RenderTransform = new ScaleTransform(
@@ -241,91 +246,6 @@ internal partial class MainWindow
                 wrap.Children.Add(BuildCard(item));
             }
             _cardContent.Children.Add(wrap);
-        }
-    }
-
-    private void AddActionButtons(StackPanel panel, ResourceRow r, bool isCard)
-    {
-        var padding = isCard
-                        ? new Thickness(8, 6)
-                        : new Thickness(4, 2);
-
-        if (_config.ShowStartButton && r.CanPower && !r.Resource.IsRunning)
-        {
-            var btn = new Button
-            {
-                Content = AppIcons.Row(AppIcons.Play, new SolidColorBrush(AppColors.Running)),
-                Padding = padding
-            };
-            Avalonia.Controls.ToolTip.SetTip(btn, L("Start"));
-            btn.Click += async (_, _) =>
-            {
-                if (_config.ConfirmStart && !await ConfirmAsync($"Start {r.Name}?"))
-                {
-                    return;
-                }
-
-                _lblStatus.Text = $"Starting {r.Name}...";
-                await VmService.ChangeStatusAsync(_client, r.Resource.Node, r.Resource.VmId, r.VmType, VmStatus.Start);
-                if (_btnAutoRef != null && _btnAutoRef.IsChecked != true)
-                {
-                    _btnAutoRef.IsChecked = true;
-                }
-                await RefreshAsync();
-            };
-            panel.Children.Add(btn);
-        }
-
-        if (_config.ShowShutdownButton && r.CanPower && r.Resource.IsRunning)
-        {
-            var btn = new Button
-            {
-                Content = AppIcons.Row(AppIcons.Stop, new SolidColorBrush(AppColors.Shutdown)),
-                Padding = padding
-            };
-            Avalonia.Controls.ToolTip.SetTip(btn, L("Shutdown"));
-            btn.Click += async (_, _) =>
-            {
-                if (_config.ConfirmShutdown && !await ConfirmAsync($"Shutdown {r.Name}?"))
-                {
-                    return;
-                }
-
-                _lblStatus.Text = $"Shutdown {r.Name}...";
-                await VmService.ChangeStatusAsync(_client, r.Resource.Node, r.Resource.VmId, r.VmType, VmStatus.Shutdown);
-                await RefreshAsync();
-            };
-            panel.Children.Add(btn);
-        }
-
-        if (r.CanSpice)
-        {
-            var btn = new Button
-            {
-                Content = AppIcons.Row(AppIcons.Spice),
-                Padding = padding
-            };
-            Avalonia.Controls.ToolTip.SetTip(btn, L("Spice"));
-            btn.Click += async (_, _) => await LaunchSpiceAsync(r);
-            panel.Children.Add(btn);
-        }
-
-        if (r.HasRdp && r.RdpIp is not null)
-        {
-            var btn = new Button
-            {
-                Content = AppIcons.Row(AppIcons.Rdp),
-                Padding = padding
-            };
-            Avalonia.Controls.ToolTip.SetTip(btn, $"RDP → {r.RdpIp}");
-            btn.Click += (_, _) =>
-            {
-                var err = VmService.LaunchRdp(r.RdpIp, _config.RdpPath);
-                _lblStatus.Text = string.IsNullOrEmpty(err)
-                    ? $"RDP → {r.Name}"
-                    : $"Error: {err}";
-            };
-            panel.Children.Add(btn);
         }
     }
 }
