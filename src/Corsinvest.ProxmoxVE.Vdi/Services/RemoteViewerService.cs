@@ -94,7 +94,7 @@ internal static partial class RemoteViewerService
             host=127.0.0.1
             port={bridge.LocalPort}
             password={ticket}
-            title={node}:{(vmType == VmType.Lxc? "lxc": "qemu")}/{vmId}
+            title={node}:{(vmType == VmType.Lxc ? "lxc" : "qemu")}/{vmId}
             delete-this-file=1
             """;
 
