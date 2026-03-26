@@ -11,12 +11,10 @@ namespace Corsinvest.ProxmoxVE.Vdi.UI.Models;
 
 internal class ResourceRow(ClusterResource resource,
                            bool hasSpice,
-                           bool hasRdp,
-                           string? rdpIp,
                            bool canPower,
                            bool canConsole,
                            string osType,
-                           SpiceFeatures? features = null)
+                           VmFeatures? features = null)
 {
     public ClusterResource Resource => resource;
     public ClusterResourceType ResourceType => resource.ResourceType;
@@ -54,8 +52,6 @@ internal class ResourceRow(ClusterResource resource,
         => resource.ResourceType != ClusterResourceType.Node
             && resource.IsRunning && canConsole;
 
-    public bool HasRdp => hasRdp;
-    public string? RdpIp => rdpIp;
     public bool CanPower => canPower;
     public bool CanConsole => canConsole;
 
@@ -64,19 +60,15 @@ internal class ResourceRow(ClusterResource resource,
         ? "linux"
         : osType;
 
-    public SpiceFeatures Features => features ?? SpiceFeatures.None;
+    public VmFeatures Features => features ?? VmFeatures.None;
 
-    public bool HasAnyVdiAction => ResourceType == ClusterResourceType.Node || hasSpice || CanVnc || hasRdp;
+    public bool HasAnyVdiAction => ResourceType == ClusterResourceType.Node || hasSpice || CanVnc;
 
     public string StatusDisplay
         => resource.ResourceType == ClusterResourceType.Node
-            ? (resource.IsOnline
-                ? "Online"
-                : "Offline")
-        : (resource.IsRunning
-            ? "Running"
-            : resource.IsPaused
-                ? "Paused"
+            ? (resource.IsOnline ? "Online" : "Offline")
+            : (resource.IsRunning ? "Running"
+                : resource.IsPaused ? "Paused"
                 : "Stopped");
 
     public double CpuPct => resource.CpuUsagePercentage;

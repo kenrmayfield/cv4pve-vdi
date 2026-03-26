@@ -5,6 +5,8 @@
 
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Cluster;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
+using Corsinvest.ProxmoxVE.Vdi.Config;
+using Corsinvest.ProxmoxVE.Vdi.Config.Models;
 using Corsinvest.ProxmoxVE.Vdi.Services;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 using Corsinvest.ProxmoxVE.Vdi.UI.Models;
@@ -32,13 +34,13 @@ internal partial class MainWindow
         Color color;
         double opacity;
 
-        if (!_config.EnableAgentPing)
+        if (!_config.EnableAgentPing || row.Features.AgentRunning is null)
         {
             tooltip = L("BadgeAgentUnknown");
             color = Colors.Gray;
             opacity = 0.5;
         }
-        else if (row.Features.AgentRunning)
+        else if (row.Features.AgentRunning == true)
         {
             tooltip = L("BadgeAgentRunning");
             color = AppColors.Running;
@@ -108,30 +110,29 @@ internal partial class MainWindow
         return btn;
     }
 
-    internal void AddActionButtons(StackPanel panel, ResourceRow row, bool isCard)
+    internal void AddActionButtons(DockPanel panel, ResourceRow row, bool isCard)
     {
-        var padding = isCard
-                        ? new Thickness(8, 6)
-                        : new Thickness(4, 2);
+        var padding = isCard ? new Thickness(8, 6) : new Thickness(4, 2);
+        var spacing = isCard ? 6 : 4;
+
+        void AddLeft(Button btn)
+        {
+            btn.Margin = new Thickness(0, 0, spacing, 0);
+            Avalonia.Controls.DockPanel.SetDock(btn, Dock.Left);
+            panel.Children.Add(btn);
+        }
 
         if (_config.ShowStartButton && row.CanPower && !row.Resource.IsRunning)
         {
             var btn = ActionButton(AppIcons.Play, L("Start"), padding, AppColors.Running);
             btn.Click += async (_, _) =>
             {
-                if (_config.ConfirmStart && !await ConfirmAsync(string.Format(L("ConfirmStart"), row.Name)))
-                {
-                    return;
-                }
-
+                if (_config.ConfirmStart && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmStart"), row.Name))) { return; }
                 await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Start);
-                if (_btnAutoRef != null && _btnAutoRef.IsChecked != true)
-                {
-                    _btnAutoRef.IsChecked = true;
-                }
+                if (_btnAutoRef?.IsChecked != true) { _btnAutoRef!.IsChecked = true; }
                 await RefreshAsync();
             };
-            panel.Children.Add(btn);
+            AddLeft(btn);
         }
 
         if (_config.ShowShutdownButton && row.CanPower && row.Resource.IsRunning)
@@ -139,48 +140,102 @@ internal partial class MainWindow
             var btn = ActionButton(AppIcons.Stop, L("Shutdown"), padding, AppColors.Shutdown);
             btn.Click += async (_, _) =>
             {
-                if (_config.ConfirmShutdown && !await ConfirmAsync(string.Format(L("ConfirmShutdown"), row.Name)))
-                {
-                    return;
-                }
-
+                if (_config.ConfirmShutdown && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmShutdown"), row.Name))) { return; }
                 await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Shutdown);
-                if (_btnAutoRef != null && _btnAutoRef.IsChecked != true)
-                {
-                    _btnAutoRef.IsChecked = true;
-                }
+                if (_btnAutoRef?.IsChecked != true) { _btnAutoRef!.IsChecked = true; }
                 await RefreshAsync();
             };
-            panel.Children.Add(btn);
+            AddLeft(btn);
         }
 
+        if (row.ResourceType != ClusterResourceType.Node)
+        {
+            AddLeft(BuildConnectButton(row, padding));
+        }
+    }
+
+    private Button BuildConnectButton(ResourceRow row, Thickness padding)
+    {
+        var menu = new ContextMenu();
+
+        // SPICE and VNC as first entries
         if (row.CanSpice)
         {
-            var btn = ActionButton(AppIcons.Spice, L("Spice"), padding);
-            btn.Click += async (_, _) => await LaunchSpiceAsync(row);
-            panel.Children.Add(btn);
+            var item = new MenuItem { Header = AppIcons.WithText(AppIcons.Spice, L("Spice")) };
+            item.Click += async (_, _) => await LaunchSpiceAsync(row);
+            menu.Items.Add(item);
         }
 
         if (_config.EnableVnc && row.CanVnc)
         {
-            var btn = ActionButton(AppIcons.Vnc, L("Vnc"), padding);
-            btn.Click += async (_, _) => await LaunchVncAsync(row);
-            panel.Children.Add(btn);
+            var item = new MenuItem { Header = AppIcons.WithText(AppIcons.Vnc, L("Vnc")) };
+            item.Click += async (_, _) => await LaunchVncAsync(row);
+            menu.Items.Add(item);
         }
 
-        if (row.HasRdp && row.RdpIp is not null)
+        // Custom services
+        var vmConfig = _host.Vms.FirstOrDefault(v => v.VmId == (int)row.Resource.VmId);
+        var services = vmConfig?.Services ?? [];
+        if (services.Count > 0)
         {
-            var btn = ActionButton(AppIcons.Rdp, string.Format(L("StatusRdpTooltip"), row.RdpIp), padding);
-            btn.Click += (_, _) =>
+            var launchers = LauncherEngine.LoadForCurrentPlatform(AppConfigManager.LaunchersUserFile);
+
+            if (menu.Items.Count > 0) { menu.Items.Add(new Separator()); }
+
+            foreach (var svc in services)
             {
-                var err = VmService.LaunchRdp(row.RdpIp, _config.RdpPath);
-                if (!string.IsNullOrEmpty(err))
+                var launcher = launchers.FirstOrDefault(l => l.ServiceId == svc.ServiceId);
+                if (launcher is null) { continue; }
+
+                var svcCopy = svc;
+                var launcherCopy = launcher;
+                var item = new MenuItem { Header = launcher.DisplayName };
+                item.Click += async (_, _) =>
                 {
-                    ShowToast($"{L("ErrorPrefix")}{err}", NotificationSeverity.Error);
-                }
-            };
-            panel.Children.Add(btn);
+                    var ip = !string.IsNullOrEmpty(svcCopy.IpOverride)
+                                ? svcCopy.IpOverride
+                                : await VmService.GetVmIpAsync(_client, row.Resource.Node, row.Resource.VmId);
+
+                    if (string.IsNullOrEmpty(ip))
+                    {
+                        ShowToast(L("NoIpAvailable"), NotificationSeverity.Warning);
+                        return;
+                    }
+
+                    var creds = svcCopy.CredentialSource switch
+                    {
+                        CredentialSource.Vdi => new Credentials { Username = vdiUser, Password = vdiPassword },
+                        CredentialSource.Manual => svcCopy.Credentials,
+                        _ => null
+                    };
+
+                    var extraArgs = string.IsNullOrEmpty(svcCopy.ExtraArgs) ? launcherCopy.ExtraArgs : svcCopy.ExtraArgs;
+                    var err = LauncherEngine.Launch(launcherCopy, ip, svcCopy.Port, creds, extraArgs);
+                    if (!string.IsNullOrEmpty(err)) { ShowToast($"{L("ErrorPrefix")}{err}", NotificationSeverity.Error); }
+                };
+                menu.Items.Add(item);
+            }
         }
+
+        // "Configure services..." — always last, always present
+        if (menu.Items.Count > 0) { menu.Items.Add(new Separator()); }
+        var itemConfigure = new MenuItem { Header = AppIcons.WithText(AppIcons.Settings, L("ConfigureServices")) };
+        itemConfigure.Click += async (_, _) =>
+        {
+            var vmId = (int)row.Resource.VmId;
+            var vmConfig = _host.Vms.FirstOrDefault(v => v.VmId == vmId) ?? new Config.Models.VmConfig { VmId = vmId };
+            var updated = await VmServicesWindow.ShowAsync(_window!, vmConfig, row.Name, AppConfigManager.LaunchersUserFile, _client, row.Resource.Node);
+            var existing = _host.Vms.FindIndex(v => v.VmId == vmId);
+            if (existing >= 0) { _host.Vms[existing] = updated; }
+            else { _host.Vms.Add(updated); }
+            AppConfigManager.Save(_config);
+            ApplyFilter();
+        };
+        menu.Items.Add(itemConfigure);
+
+        var btnConnect = ActionButton(AppIcons.Network, L("Connect"), padding);
+        btnConnect.Click += (_, _) => menu.Open(btnConnect);
+        return btnConnect;
     }
 
     private Color GetTagColor(string tag)
@@ -195,7 +250,7 @@ internal partial class MainWindow
             }
         }
         var h = Math.Abs(tag.GetHashCode());
-        return Color.FromRgb((byte)(h & 0xFF), (byte)((h >> 8) & 0xFF), (byte)((h >> 16) & 0x7F | 0x40));
+        return Color.FromRgb((byte)(h & 0xFF), (byte)((h >> 8) & 0xFF), (byte)(((h >> 16) & 0x7F) | 0x40));
     }
 
     private static Ellipse BuildStatusDot(ResourceRow row)
@@ -281,13 +336,16 @@ internal partial class MainWindow
     {
         var color = GetTagColor(tag);
         // dark: blend toward white; light: blend toward black
-        static Color Blend(Color c, Color target, double t) => Color.FromArgb(255,
-            (byte)(c.R + (target.R - c.R) * t),
-            (byte)(c.G + (target.G - c.G) * t),
-            (byte)(c.B + (target.B - c.B) * t));
+        static Color Blend(Color c, Color target, double t)
+            => Color.FromArgb(255,
+                              (byte)(c.R + ((target.R - c.R) * t)),
+                              (byte)(c.G + ((target.G - c.G) * t)),
+                              (byte)(c.B + ((target.B - c.B) * t)));
+
         var textColor = AppColors.IsDark
-            ? Blend(color, Colors.White, 0.6)
-            : Blend(color, Colors.Black, 0.5);
+                        ? Blend(color, Colors.White, 0.6)
+                        : Blend(color, Colors.Black, 0.5);
+
         return new Border
         {
             CornerRadius = new CornerRadius(10),
@@ -357,20 +415,19 @@ internal partial class MainWindow
     }
 
     private static List<string> GetOrderedNodeNames(List<ResourceRow> rows)
-        => rows.Where(r => r.ResourceType == ClusterResourceType.Vm)
+        => [.. rows.Where(r => r.ResourceType == ClusterResourceType.Vm)
                .Select(r => r.NodeName)
                .Distinct()
                .Union(rows.Where(r => r.ResourceType == ClusterResourceType.Node).Select(r => r.Name))
-               .OrderBy(n => n)
-               .ToList();
+               .Order()];
 
     internal IEnumerable<string> EffectivePrivs(string path)
     {
         if (_permissions.TryGetValue("/", out var rootPrivs))
         {
-            foreach (var p in rootPrivs)
+            foreach (var item in rootPrivs)
             {
-                yield return p;
+                yield return item;
             }
         }
 
@@ -380,9 +437,9 @@ internal partial class MainWindow
             current += "/" + part;
             if (_permissions.TryGetValue(current, out var privs))
             {
-                foreach (var p in privs)
+                foreach (var item in privs)
                 {
-                    yield return p;
+                    yield return item;
                 }
             }
         }
@@ -404,47 +461,47 @@ internal partial class MainWindow
         if (!string.IsNullOrWhiteSpace(_filterText))
         {
             var ft = _filterText.Trim().ToLowerInvariant();
-            filtered = filtered.Where(r => r.Name.Contains(ft, StringComparison.OrdinalIgnoreCase)
-                                            || r.IdDisplay.Contains(ft, StringComparison.OrdinalIgnoreCase)
-                                            || r.Description.Contains(ft, StringComparison.OrdinalIgnoreCase));
+            filtered = filtered.Where(a => a.Name.Contains(ft, StringComparison.OrdinalIgnoreCase)
+                                            || a.IdDisplay.Contains(ft, StringComparison.OrdinalIgnoreCase)
+                                            || a.Description.Contains(ft, StringComparison.OrdinalIgnoreCase));
         }
 
         var filterByStatus = _chkRunning.IsChecked == true || _chkStopped.IsChecked == true;
         if (filterByStatus)
         {
-            filtered = filtered.Where(r => r.ResourceType == ClusterResourceType.Node
-                                            || (_chkRunning.IsChecked == true && r.IsActive)
-                                            || (_chkStopped.IsChecked == true && !r.IsActive));
+            filtered = filtered.Where(a => a.ResourceType == ClusterResourceType.Node
+                                            || (_chkRunning.IsChecked == true && a.IsActive)
+                                            || (_chkStopped.IsChecked == true && !a.IsActive));
         }
 
         var filterByType = _chkQemu.IsChecked == true || _chkLxc.IsChecked == true;
         if (filterByType)
         {
-            filtered = filtered.Where(r => r.ResourceType == ClusterResourceType.Node
-                                            || (r.VmType == VmType.Qemu && _chkQemu.IsChecked == true)
-                                            || (r.VmType == VmType.Lxc && _chkLxc.IsChecked == true));
+            filtered = filtered.Where(a => a.ResourceType == ClusterResourceType.Node
+                                            || (a.VmType == VmType.Qemu && _chkQemu.IsChecked == true)
+                                            || (a.VmType == VmType.Lxc && _chkLxc.IsChecked == true));
         }
 
         if (_filterNodes.Count > 0)
         {
-            filtered = filtered.Where(r => r.ResourceType == ClusterResourceType.Node
-                                            ? _filterNodes.Contains(r.Name)
-                                            : _filterNodes.Contains(r.NodeName));
+            filtered = filtered.Where(a => a.ResourceType == ClusterResourceType.Node
+                                            ? _filterNodes.Contains(a.Name)
+                                            : _filterNodes.Contains(a.NodeName));
         }
 
         if (_filterPools.Count > 0)
         {
-            filtered = filtered.Where(r => r.ResourceType == ClusterResourceType.Node
-                                            || _filterPools.Contains(r.Pool));
+            filtered = filtered.Where(a => a.ResourceType == ClusterResourceType.Node
+                                            || _filterPools.Contains(a.Pool));
         }
 
         if (_filterTags.Count > 0)
         {
-            filtered = filtered.Where(r => r.Tags.Length == 0
-                                            || r.Tags.Any(t => _filterTags.Contains(t)));
+            filtered = filtered.Where(a => a.Tags.Length == 0
+                                            || a.Tags.Any(t => _filterTags.Contains(t)));
         }
 
-        var list = filtered.Where(r => r.HasAnyVdiAction).ToList();
+        var list = filtered.Where(a => a.HasAnyVdiAction).ToList();
         RebuildCardView(list);
         RebuildListView(list);
     }

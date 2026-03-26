@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-namespace Corsinvest.ProxmoxVE.Vdi.Config;
+namespace Corsinvest.ProxmoxVE.Vdi.Config.Models;
 
-internal class VdiHost
+internal class ClusterConfig
 {
     /// <summary>
     /// Display name for this host/cluster
@@ -17,11 +17,6 @@ internal class VdiHost
     /// e.g. "pve1.example.com:8006,pve2.example.com:8006"
     /// </summary>
     public string Hosts { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Optional TLS fingerprint for self-signed certificates
-    /// </summary>
-    public string Fingerprint { get; set; } = string.Empty;
 
     /// <summary>
     /// Skip TLS certificate validation
@@ -36,5 +31,10 @@ internal class VdiHost
     /// <summary>
     /// SPICE connection options for this cluster.
     /// </summary>
-    public SpiceOptions Spice { get; set; } = new();
+    public SpiceConfig Spice { get; set; } = new();
+
+    /// <summary>
+    /// Per-VM/CT service configuration.
+    /// </summary>
+    public List<VmConfig> Vms { get; set; } = [];
 }

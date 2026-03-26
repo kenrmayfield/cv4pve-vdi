@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-using Corsinvest.ProxmoxVE.Vdi.Config;
+using Corsinvest.ProxmoxVE.Vdi.Config.Models;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 
 namespace Corsinvest.ProxmoxVE.Vdi.UI;
@@ -11,10 +11,10 @@ namespace Corsinvest.ProxmoxVE.Vdi.UI;
 internal static class HostEditWindow
 {
     /// <summary>
-    /// Pass null for Add, or an existing VdiHost for Edit.
-    /// Returns the saved VdiHost or null if cancelled.
+    /// Pass null for Add, or an existing ClusterConfig for Edit.
+    /// Returns the saved ClusterConfig or null if cancelled.
     /// </summary>
-    public static Window Create(VdiHost? existing)
+    public static Window Create(ClusterConfig? existing)
     {
         var isEdit = existing != null;
 
@@ -36,7 +36,7 @@ internal static class HostEditWindow
 
         var chkSkipSsl = new CheckBox
         {
-            Content = L("HostSkipSsl"),
+            Content = AppIcons.WithText(AppIcons.Lock, L("HostSkipSsl")),
             IsChecked = existing?.SkipSslValidation ?? false
         };
 
@@ -59,7 +59,7 @@ internal static class HostEditWindow
             Text = existing?.Spice.Proxy ?? string.Empty,
             Watermark = "host:port or https://host:port (empty = use PVE host)",
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Globe)
+            InnerLeftContent = AppIcons.Inner(AppIcons.Ethernet)
         };
 
         var txtViewerOptions = new TextBox
@@ -79,7 +79,10 @@ internal static class HostEditWindow
         var btnSave = new Button
         {
             Content = AppIcons.Toolbar(isEdit ? AppIcons.Save : AppIcons.Add),
-            Padding = new Thickness(6, 4)
+            Padding = new Thickness(6, 4),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0)
         };
         Avalonia.Controls.ToolTip.SetTip(btnSave, isEdit ? L("Save") : L("Add"));
 
@@ -154,13 +157,13 @@ internal static class HostEditWindow
                 return;
             }
 
-            var result = new VdiHost
+            var result = new ClusterConfig
             {
                 Name = name,
                 Hosts = url,
                 SkipSslValidation = chkSkipSsl.IsChecked == true,
                 Timeout = (int)(numTimeout.Value ?? 10),
-                Spice = new SpiceOptions
+                Spice = new SpiceConfig
                 {
                     Proxy = txtProxy.Text?.Trim() ?? string.Empty,
                     ViewerOptions = txtViewerOptions.Text?.Trim() ?? string.Empty

@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Corsinvest.ico" />
+    <EmbeddedResource Include="Config\launchers.yaml" />
   </ItemGroup>
 
   <ItemGroup>

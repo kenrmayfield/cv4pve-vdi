@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-26
+
+### Added
+- **Service launchers** — connect to VMs via RDP, SSH, PuTTY and any custom tool directly from the Connect button; built-in launchers for mstsc, xFreeRDP, SSH (cmd, PuTTY, GNOME Terminal, xterm, Konsole, macOS Terminal)
+- **Per-VM services** — configure one or more services per VM with custom port, credentials and IP; accessible from **Connect → Services...**
+- **Service discovery** — auto-detect open ports on a VM and add the matching services in one click
+- **Credentials per service** — save username/password per service, or use the Windows Credential Manager on Windows
+
+### Changed
+- **Connect button** — SPICE, VNC and all configured services are now grouped in a single dropdown per VM
+- **Guest agent badge** — starts gray when first enabled, turns green/red as each VM is checked (no more sudden red flash)
+
 ## [1.2.0] - 2026-03-20
 
 ### Added
@@ -22,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Faster refresh** — guest agent status is now cached and re-checked at most every 60 seconds, noticeably faster on large clusters
 - **Auto-refresh** — shows a "30s" label when active; replaced internal loop with `DispatcherTimer`, ticks skipped if a refresh is already in progress
 - **Settings** — display options arranged in a compact 2-column layout
-- **HostEditWindow** — removed Cancel button; close the window to cancel
+- **Edit Cluster dialog** — removed Cancel button; close the window to cancel
 - **VNC session title** — `.vv` file now includes a `title` field (`node:type/vmid`) visible in the remote-viewer title bar
 - **Progress bar** — increased height to 8 px for better visibility
 - **Settings Appearance tab** — icon updated to Palette

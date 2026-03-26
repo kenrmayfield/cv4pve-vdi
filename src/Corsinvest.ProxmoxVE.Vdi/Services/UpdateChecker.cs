@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: MIT
  */
 
+using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
+using Semver;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
-using Semver;
 
 namespace Corsinvest.ProxmoxVE.Vdi.Services;
 
@@ -61,8 +61,7 @@ internal static class UpdateChecker
     /// Calls onNewVersion on the UI thread when a newer version is found.
     /// </summary>
     public static void StartBackground(Action<string, string> onNewVersion, CancellationToken ct = default)
-    {
-        Task.Run(async () =>
+        => Task.Run(async () =>
         {
             while (!ct.IsCancellationRequested)
             {
@@ -75,7 +74,6 @@ internal static class UpdateChecker
                 await Task.Delay(TimeSpan.FromHours(12), ct).ContinueWith(_ => { });
             }
         }, ct);
-    }
 
     private sealed class GitHubRelease
     {

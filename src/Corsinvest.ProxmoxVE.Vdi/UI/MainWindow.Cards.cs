@@ -115,10 +115,9 @@ internal partial class MainWindow
             ramSection = BuildMiniBar("RAM", row.MemoryPct, row.MemoryDisplay);
         }
 
-        var btnPanel = new StackPanel
+        var btnPanel = new DockPanel
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6
+            LastChildFill = false
         };
 
         // Fixed-row grid for alignment across cards:

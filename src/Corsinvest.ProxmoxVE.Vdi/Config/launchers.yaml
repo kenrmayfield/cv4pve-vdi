@@ -1,0 +1,142 @@
+launchers:
+  # RDP — Windows
+  - service-id: rdp-mstsc
+    display-name: "RDP (mstsc)"
+    platform: Windows
+    default-port: 3389
+    supports-credentials: true
+    use-windows-credential: true
+    documentation-url: "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mstsc"
+    executable: "mstsc.exe"
+    arguments: "/v:{ip}{?::{port}} {extraArgs}"
+    extra-args: ""
+
+  # RDP — xFreeRDP
+  - service-id: rdp-xfreerdp-windows
+    display-name: "RDP (xFreeRDP)"
+    platform: Windows
+    default-port: 3389
+    supports-credentials: true
+    use-windows-credential: false
+    documentation-url: "https://github.com/FreeRDP/FreeRDP/wiki/CommandLineInterface"
+    executable: "xfreerdp.exe"
+    arguments: "/v:{ip}{?::{port}} /cert:ignore {?/u:{username}} {?/p:{password}} {extraArgs}"
+    extra-args: ""
+
+  - service-id: rdp-xfreerdp-linux
+    display-name: "RDP (xFreeRDP)"
+    platform: Linux
+    default-port: 3389
+    supports-credentials: true
+    use-windows-credential: false
+    documentation-url: "https://github.com/FreeRDP/FreeRDP/wiki/CommandLineInterface"
+    executable: "xfreerdp"
+    arguments: "/v:{ip}{?::{port}} /cert:ignore {?/u:{username}} {?/p:{password}} {extraArgs}"
+    extra-args: ""
+
+  - service-id: rdp-xfreerdp-osx
+    display-name: "RDP (xFreeRDP)"
+    platform: OSX
+    default-port: 3389
+    supports-credentials: true
+    use-windows-credential: false
+    documentation-url: "https://github.com/FreeRDP/FreeRDP/wiki/CommandLineInterface"
+    executable: "xfreerdp"
+    arguments: "/v:{ip}{?::{port}} /cert:ignore {?/u:{username}} {?/p:{password}} {extraArgs}"
+    extra-args: ""
+
+  # SSH — Windows (cmd)
+  - service-id: ssh-windows
+    display-name: "SSH (cmd)"
+    platform: Windows
+    default-port: 22
+    supports-credentials: true
+    use-windows-credential: false
+    documentation-url: "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ssh"
+    executable: "cmd.exe"
+    arguments: "/k ssh {?-p {port}} {?{username}@}{ip} {extraArgs}"
+    extra-args: ""
+
+  # SSH — Windows (PuTTY)
+  - service-id: ssh-putty-windows
+    display-name: "SSH (PuTTY)"
+    platform: Windows
+    default-port: 22
+    supports-credentials: true
+    use-windows-credential: false
+    documentation-url: "https://documentation.help/PuTTY/using-cmdline.html"
+    executable: "putty.exe"
+    arguments: "-ssh {ip} {?-P {port}} {?-l {username}} {?-pw {password}} {extraArgs}"
+    extra-args: ""
+
+  # SSH — Linux (GNOME Terminal)
+  - service-id: ssh-gnome-terminal
+    display-name: "SSH (GNOME Terminal)"
+    platform: Linux
+    default-port: 22
+    supports-credentials: false
+    use-windows-credential: false
+    documentation-url: "https://man.openbsd.org/ssh"
+    executable: "gnome-terminal"
+    arguments: "-- ssh {?-p {port}} {?{username}@}{ip} {extraArgs}"
+    extra-args: ""
+
+  # SSH — Linux (xterm)
+  - service-id: ssh-xterm
+    display-name: "SSH (xterm)"
+    platform: Linux
+    default-port: 22
+    supports-credentials: false
+    use-windows-credential: false
+    documentation-url: "https://man.openbsd.org/ssh"
+    executable: "xterm"
+    arguments: "-e ssh {?-p {port}} {?{username}@}{ip} {extraArgs}"
+    extra-args: ""
+
+  # SSH — Linux (Konsole)
+  - service-id: ssh-konsole
+    display-name: "SSH (Konsole)"
+    platform: Linux
+    default-port: 22
+    supports-credentials: false
+    use-windows-credential: false
+    documentation-url: "https://man.openbsd.org/ssh"
+    executable: "konsole"
+    arguments: "--hold -e ssh {?-p {port}} {?{username}@}{ip} {extraArgs}"
+    extra-args: ""
+
+  # SSH — Linux (PuTTY)
+  - service-id: ssh-putty-linux
+    display-name: "SSH (PuTTY)"
+    platform: Linux
+    default-port: 22
+    supports-credentials: true
+    use-windows-credential: false
+    documentation-url: "https://documentation.help/PuTTY/using-cmdline.html"
+    executable: "putty"
+    arguments: "-ssh {ip} {?-P {port}} {?-l {username}} {?-pw {password}} {extraArgs}"
+    extra-args: ""
+
+  # SSH — macOS (Terminal)
+  - service-id: ssh-mac
+    display-name: "SSH (Terminal)"
+    platform: OSX
+    default-port: 22
+    supports-credentials: false
+    use-windows-credential: false
+    documentation-url: "https://man.openbsd.org/ssh"
+    executable: "osascript"
+    arguments: "-e 'tell app \"Terminal\" to do script \"ssh {?-p {port}} {?{username}@}{ip} {extraArgs}\"'"
+    extra-args: ""
+
+  # SSH — macOS (PuTTY)
+  - service-id: ssh-putty-osx
+    display-name: "SSH (PuTTY)"
+    platform: OSX
+    default-port: 22
+    supports-credentials: true
+    use-windows-credential: false
+    documentation-url: "https://documentation.help/PuTTY/using-cmdline.html"
+    executable: "putty"
+    arguments: "-ssh {ip} {?-P {port}} {?-l {username}} {?-pw {password}} {extraArgs}"
+    extra-args: ""

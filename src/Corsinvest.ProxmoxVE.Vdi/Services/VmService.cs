@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using Corsinvest.ProxmoxVE.Api;
 using Corsinvest.ProxmoxVE.Api.Extension;
 using Corsinvest.ProxmoxVE.Api.Extension.Utils;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
+using Corsinvest.ProxmoxVE.Vdi.Config.Models;
+using System.Net.Sockets;
 
 namespace Corsinvest.ProxmoxVE.Vdi.Services;
 
@@ -26,54 +26,45 @@ internal static class VmService
         try
         {
             var ifaces = await client.Nodes[node].Qemu[vmId].Agent.NetworkGetInterfaces.GetAsync();
-            return ifaces?.Result.SelectMany(i => i.IpAddresses)
-                                 .FirstOrDefault(a => a.IpAddressType == "ipv4" && !a.IpAddress.StartsWith("127."))
-                                 ?.IpAddress;
+            return ifaces?.Result
+                          .Where(i => !string.IsNullOrEmpty(i.HardwareAddress)
+                                      && i.HardwareAddress != "00:00:00:00:00:00"
+                                      && i.HardwareAddress != "0:0:0:0:0:0")
+                          .SelectMany(i => i.IpAddresses)
+                          .FirstOrDefault(a => a.IpAddressType == "ipv4" && !a.IpAddress.StartsWith("127."))
+                          ?.IpAddress;
         }
         catch { return null; }
     }
 
     /// <summary>
-    /// TCP-connect check on port 3389 with a short timeout.
+    /// Scans ports for all platform launchers that have a DefaultPort and are not already configured.
+    /// Returns the launchers whose port responded within the timeout.
     /// </summary>
-    public static async Task<bool> IsRdpOpenAsync(string ip, int timeoutMs = 600)
+    public static async Task<IReadOnlyList<LauncherDefinition>> DiscoverServicesAsync(
+        string ip,
+        IEnumerable<LauncherDefinition> launchers,
+        IEnumerable<VmServiceConfig> existing,
+        int timeoutMs = 500)
     {
-        try
-        {
-            using var tcp = new TcpClient();
-            await tcp.ConnectAsync(ip, 3389).WaitAsync(TimeSpan.FromMilliseconds(timeoutMs));
-            return true;
-        }
-        catch { return false; }
-    }
+        var existingIds = existing.Select(s => s.ServiceId).ToHashSet();
 
-    /// <summary>
-    /// Launches mstsc.exe (Windows) or xfreerdp (Linux/Mac) to connect via RDP.
-    /// </summary>
-    public static string LaunchRdp(string ip, string rdpPath)
-    {
-        try
-        {
-            var startInfo = new ProcessStartInfo { UseShellExecute = true };
-            if (!string.IsNullOrWhiteSpace(rdpPath))
-            {
-                startInfo.FileName = rdpPath;
-                startInfo.Arguments = $"/v:{ip}";
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                startInfo.FileName = "mstsc.exe";
-                startInfo.Arguments = $"/v:{ip}";
-            }
-            else
-            {
-                startInfo.FileName = "xfreerdp";
-                startInfo.Arguments = $"/v:{ip}";
-            }
+        var candidates = launchers
+            .Where(l => l.DefaultPort > 0 && !existingIds.Contains(l.ServiceId))
+            .ToList();
 
-            Process.Start(startInfo);
-            return string.Empty;
-        }
-        catch (Exception ex) { return ex.Message; }
+        var tasks = candidates.Select(async l =>
+        {
+            try
+            {
+                using var tcp = new TcpClient();
+                await tcp.ConnectAsync(ip, l.DefaultPort).WaitAsync(TimeSpan.FromMilliseconds(timeoutMs));
+                return (l, reachable: true);
+            }
+            catch { return (l, reachable: false); }
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return [.. results.Where(r => r.reachable).Select(r => r.l)];
     }
 }

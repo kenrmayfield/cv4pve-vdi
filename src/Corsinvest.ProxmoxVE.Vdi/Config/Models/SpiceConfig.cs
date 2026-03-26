@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-namespace Corsinvest.ProxmoxVE.Vdi.Config;
+namespace Corsinvest.ProxmoxVE.Vdi.Config.Models;
 
-internal class SpiceOptions
+internal class SpiceConfig
 {
     /// <summary>
     /// Proxy override for this cluster. If empty, the PVE host is used.

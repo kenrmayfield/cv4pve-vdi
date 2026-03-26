@@ -11,7 +11,7 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        var config = VdiConfigManager.Load();
+        var config = AppConfigManager.Load();
 
         Window Build() => LoginWindow.Create(config);
 

@@ -6,18 +6,19 @@
 using Corsinvest.ProxmoxVE.Api;
 using Corsinvest.ProxmoxVE.Api.Extension.Utils;
 using Corsinvest.ProxmoxVE.Vdi.Config;
+using Corsinvest.ProxmoxVE.Vdi.Config.Models;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 
 namespace Corsinvest.ProxmoxVE.Vdi.UI;
 
 internal static class LoginWindow
 {
-    public static Window Create(VdiConfig config)
+    public static Window Create(AppConfig config)
     {
         var cmbHost = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = config.Hosts.Select(h => h.Name).ToList(),
+            ItemsSource = config.Clusters.ConvertAll(h => h.Name),
             SelectedIndex = 0
         };
 
@@ -66,7 +67,7 @@ internal static class LoginWindow
 
         Avalonia.Controls.ToolTip.SetTip(btnSettings, L("ManageHosts"));
 
-        // Host row: ComboBox (with icon overlay) + settings button
+        // ClusterConfig row: ComboBox (with icon overlay) + settings button
         var cmbHostWithIcon = new Grid();
         cmbHost.Padding = new Thickness(26, 0, 0, 0);
         var hostIcon = AppIcons.InnerOverlay(AppIcons.Server);
@@ -120,7 +121,7 @@ internal static class LoginWindow
                     FontSize = 18,
                     FontWeight = FontWeight.Bold
                 },
-                new TextBlock { Text = L("Host") },
+                new TextBlock { Text = L("ClusterConfig") },
                 hostRow,
                 new TextBlock { Text = L("Username") },
                 txtUser,
@@ -152,9 +153,9 @@ internal static class LoginWindow
 
         void RefreshHostList()
         {
-            cmbHost.ItemsSource = config.Hosts.Select(h => h.Name).ToList();
-            cmbHost.SelectedIndex = config.Hosts.Count > 0
-                                        ? Math.Clamp(cmbHost.SelectedIndex, 0, config.Hosts.Count - 1)
+            cmbHost.ItemsSource = config.Clusters.ConvertAll(h => h.Name);
+            cmbHost.SelectedIndex = config.Clusters.Count > 0
+                                        ? Math.Clamp(cmbHost.SelectedIndex, 0, config.Clusters.Count - 1)
                                         : -1;
         }
 
@@ -174,8 +175,8 @@ internal static class LoginWindow
             busyOverlay.IsVisible = true;
 
             var idx = cmbHost.SelectedIndex;
-            var host = idx >= 0 && idx < config.Hosts.Count
-                        ? config.Hosts[idx]
+            var host = idx >= 0 && idx < config.Clusters.Count
+                        ? config.Clusters[idx]
                         : null;
 
             if (host == null)
@@ -201,9 +202,9 @@ internal static class LoginWindow
             }
 
             config.LastUser = user;
-            VdiConfigManager.Save(config);
+            AppConfigManager.Save(config);
 
-            var mainWin = new MainWindow(client, host, config).Build();
+            var mainWin = new MainWindow(client, host, config, user, pwd).Build();
             mainWin.Show();
             window!.Close();
         }
@@ -221,7 +222,7 @@ internal static class LoginWindow
         return window;
     }
 
-    private static async Task<(PveClient? Client, string Error)> ConnectAsync(VdiHost host,
+    private static async Task<(PveClient? Client, string Error)> ConnectAsync(ClusterConfig host,
                                                                               string username,
                                                                               string password,
                                                                               string otp = "")

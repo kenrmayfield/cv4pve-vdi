@@ -83,10 +83,9 @@ internal partial class MainWindow
 
         tagsPanel.VerticalAlignment = VerticalAlignment.Center;
 
-        var btnPanel = new StackPanel
+        var btnPanel = new DockPanel
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4,
+            LastChildFill = false,
             VerticalAlignment = VerticalAlignment.Center
         };
 

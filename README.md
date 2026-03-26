@@ -18,7 +18,7 @@ VDI client for Proxmox VE (Made in Italy)
 
 ## Overview
 
-**cv4pve-vdi** is a desktop VDI client for [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment). It provides a graphical interface to browse, filter and connect to virtual machines and containers via **SPICE** and **RDP** — without opening the Proxmox web UI.
+**cv4pve-vdi** is a desktop VDI client for [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment). It provides a graphical interface to browse, filter and connect to virtual machines and containers via **SPICE**, **VNC** and **custom service launchers** (RDP, SSH, and any other tool) — without opening the Proxmox web UI.
 
 ![Theme light and dark](docs/images/main-theme.png)
 
@@ -48,7 +48,7 @@ chmod +x cv4pve-vdi
 - **Card and list view** — switch between a visual card layout and a compact list
 - **SPICE** console launch via `remote-viewer`
 - **VNC** console via WebSocket bridge — no firewall rules or node-side configuration required (see [VNC Console](#vnc-console))
-- **RDP** launch via `mstsc` (Windows) or `xfreerdp` (Linux/macOS)
+- **Custom service launchers** — RDP, SSH, PuTTY and any other tool, configurable per VM (see [Service Launchers](#service-launchers))
 - **VM/CT power control** — Start and Shutdown buttons (with optional confirmation)
 - **Real-time stats** — CPU and RAM usage bars per VM
 - **Auto-refresh** every 30 seconds — toggle from the toolbar
@@ -66,7 +66,7 @@ Each VM card and list row shows visual indicators:
 | 🟢 **Running** dot | VM is running |
 | ⚫ **Stopped** dot | VM is stopped |
 | **VM / CT / Node** badge | Resource type with OS icon |
-| 🟢🔴⚫ **Agent** icon | QEMU guest agent status: green = running, red = not responding, gray = ping disabled |
+| 🟢🔴⚫ **Agent** icon | QEMU guest agent status: green = running, red = not responding, gray = ping disabled or unknown |
 | 🔊 **Audio** icon | SPICE audio device configured |
 | 🔌 **USB** icon | SPICE USB redirect configured |
 | 📋 **Clipboard** icon | SPICE clipboard sharing configured |
@@ -93,7 +93,7 @@ The guest agent badge (green/red/gray) requires:
    systemctl enable --now qemu-guest-agent
    ```
 
-> The agent badge is only shown on QEMU VMs (not LXC containers). Enable **Ping guest agent** in Settings → Viewer to activate live status detection.
+> The agent badge is only shown on QEMU VMs (not LXC containers). Enable **Ping guest agent** in Settings → Viewer to activate live status detection. When ping is disabled the badge stays gray (unknown); once enabled, each running VM is pinged and turns green or red accordingly.
 
 ### Auto-Refresh
 
@@ -106,16 +106,102 @@ The toolbar has a **⟳ Auto-refresh** toggle button ("30s" label appears when a
 ### Smart Filtering
 
 Only VMs and containers with actionable VDI capabilities are shown:
-- **Running** VMs: visible if SPICE is active, VNC is available, or RDP port is open
+- **Running** VMs: visible if SPICE is active, VNC is available, or at least one service is configured
 - **Stopped** VMs: visible if SPICE display (qxl/spice) is configured
 
 ### Performance
 
-- SPICE and RDP checks run in parallel batches to avoid overloading the cluster
+- SPICE and service checks run in parallel batches to avoid overloading the cluster
 - SPICE config cached across refreshes (invalidated on VM state change)
-- RDP cache cleared when VM stops
 
-> **Note:** Enabling **RDP** and/or **Ping guest agent** in Settings → Viewer increases refresh time, as each running VM requires an additional API call (RDP port scan via guest agent IP, agent ping). On large clusters with many running VMs, consider disabling these options if fast refresh is a priority.
+> **Note:** Enabling **Ping guest agent** in Settings → Viewer increases refresh time, as each running VM requires an additional API call. On large clusters with many running VMs, consider disabling it if fast refresh is a priority.
+
+---
+
+## Service Launchers
+
+cv4pve-vdi supports launching **any external tool** against a VM — RDP, SSH, PuTTY, and more. This is done through a two-layer system:
+
+### Launchers (global tool definitions)
+
+A **launcher** defines *how* to invoke an external program. Built-in launchers ship with the application (`launchers.yaml`) and cover the most common tools for each platform. You can add, edit, or remove launchers in **Settings → Launchers**.
+
+Built-in launchers include:
+
+| Launcher | Platform | Port |
+|----------|----------|------|
+| RDP (mstsc) | Windows | 3389 |
+| RDP (xFreeRDP) | Windows / Linux / macOS | 3389 |
+| SSH (cmd) | Windows | 22 |
+| SSH (PuTTY) | Windows / Linux / macOS | 22 |
+| SSH (GNOME Terminal) | Linux | 22 |
+| SSH (xterm) | Linux | 22 |
+| SSH (Konsole) | Linux | 22 |
+| SSH (Terminal) | macOS | 22 |
+
+Each launcher definition specifies:
+
+- **Service ID** — unique identifier (e.g. `rdp-mstsc`, `ssh-putty-windows`)
+- **Display name** — shown in the Connect menu
+- **Platform** — Windows, Linux, or macOS (only launchers for the current platform are shown)
+- **Default port**
+- **Executable** — path to the program
+- **Arguments** — command-line template with token substitution (see below)
+- **Supports credentials** — whether username/password can be passed to the tool
+- **Use Windows Credential Manager** — (Windows only) read credentials from the Windows Credential Manager
+
+#### Argument tokens
+
+The `arguments` field supports the following tokens:
+
+| Token | Description |
+|-------|-------------|
+| `{ip}` | VM IP address (resolved via guest agent or from IP override) |
+| `{port}` | Port number for this service |
+| `{username}` | Username (from credentials) |
+| `{password}` | Password (from credentials) |
+| `{extraArgs}` | Extra arguments (from the service config or launcher default) |
+| `{?TEXT}` | Include `TEXT` (with tokens resolved) only if all tokens inside it are non-empty |
+
+Examples:
+```
+/v:{ip}{?::{port}} {extraArgs}                          # mstsc: port only if non-default
+/v:{ip}{?::{port}} /cert:ignore {?/u:{username}} ...    # xfreerdp: skip /u if no username
+-ssh {ip} {?-P {port}} {?-l {username}} {?-pw {password}} {extraArgs}  # PuTTY
+```
+
+### Services (per-VM configuration)
+
+A **service** maps a launcher to a specific VM and optionally overrides port, credentials, IP, or extra arguments. Each VM can have multiple services configured (e.g. both RDP and SSH).
+
+To configure services for a VM, click **Connect → Services...** in the VM row. From there you can:
+
+- **Add** a new service, selecting the launcher and port
+- **Edit** an existing service
+- **Delete** a service
+- **Discover** — scan the VM's IP for open ports and automatically suggest matching services
+
+Once services are configured, they appear as items in the **Connect** dropdown button on the VM row.
+
+![Edit service](docs/images/edit-service.png)
+
+#### Credential sources
+
+| Source | Description |
+|--------|-------------|
+| **None** | No credentials passed to the launcher |
+| **Manual** | Username/password stored in the configuration file |
+| **Windows Credential Manager** | (Windows only) Credentials read from the Windows Credential Manager |
+
+> [!WARNING]
+> Manual credentials (username and password) are stored **in plaintext** in the configuration file:
+> - Linux/macOS: `~/.config/cv4pve-vdi/config.yaml`
+> - Windows: `%APPDATA%\cv4pve-vdi\config.yaml`
+>
+> This is consistent with other desktop tools (kubectl, git credentials, SSH config). Restrict access to the file:
+> ```bash
+> chmod 600 ~/.config/cv4pve-vdi/config.yaml
+> ```
 
 ---
 
@@ -128,7 +214,7 @@ Only VMs and containers with actionable VDI capabilities are shown:
 | `VM.Console` | Launch SPICE and VNC consoles |
 | `VM.PowerMgmt` | Start / Shutdown VMs |
 | `VM.Audit` | Read VM configuration and status |
-| `VM.Monitor` | QEMU guest agent interaction (agent ping, IP detection) |
+| `VM.Monitor` | QEMU guest agent interaction (agent ping, IP detection for services) |
 | `Sys.Console` | Launch node shell (SPICE) |
 
 ### VNC Console
@@ -202,7 +288,7 @@ chmod +x cv4pve-vdi
 
 ## SPICE Client Setup
 
-A SPICE viewer (`remote-viewer`) must be installed to use SPICE consoles.
+A SPICE viewer (`remote-viewer`) must be installed to use SPICE and VNC consoles.
 
 <details>
 <summary><strong>Linux (Debian/Ubuntu)</strong></summary>
@@ -246,9 +332,9 @@ Download from [SPICE Space macOS Client](https://www.spice-space.org/osx-client.
 
 ## Settings
 
-| Appearance | Viewer | Clusters |
-|------------|--------|----------|
-| ![Appearance](docs/images/settings-appearance.png) | ![Viewer](docs/images/settings-viewer.png) | ![Clusters](docs/images/settings-clusters.png) |
+| Appearance | Launchers | Clusters |
+|------------|-----------|----------|
+| ![Appearance](docs/images/settings-appearance.png) | ![Launchers](docs/images/settings-launchers.png) | ![Clusters](docs/images/settings-clusters.png) |
 
 **Appearance tab**
 
@@ -269,10 +355,8 @@ Download from [SPICE Space macOS Client](https://www.spice-space.org/osx-client.
 |---------|-------------|
 | **SPICE** | Enable SPICE console button |
 | **VNC** | Enable VNC console button |
-| **RDP** | Enable RDP button (requires guest agent for IP detection) |
 | **Ping guest agent (QEMU only)** | Ping the QEMU guest agent to show live status badge (green/red) |
-| **SPICE viewer path** | Path to `remote-viewer` executable |
-| **RDP client path** | Path to RDP client (`mstsc`, `xfreerdp`) — leave empty for system default |
+| **SPICE viewer path** | Path to `remote-viewer` executable (used for both SPICE and VNC) |
 
 **Clusters tab**
 
@@ -284,6 +368,14 @@ Download from [SPICE Space macOS Client](https://www.spice-space.org/osx-client.
 | **SPICE proxy** | Optional SPICE proxy address |
 | **Viewer extra options** | Additional arguments passed to `remote-viewer` |
 
+![Edit cluster](docs/images/edit-cluster.png)
+
+**Launchers tab**
+
+Manage the list of service launchers available on this machine. Built-in launchers are loaded from `launchers.yaml` shipped with the application. You can add custom launchers, edit existing ones, or remove them. Changes are saved to your user configuration.
+
+![Edit launcher](docs/images/edit-launcher.png)
+
 ---
 
 ## Troubleshooting
@@ -293,10 +385,10 @@ Download from [SPICE Space macOS Client](https://www.spice-space.org/osx-client.
 
 VMs are only shown if they have at least one actionable VDI capability:
 - Running VM with SPICE active
-- Running VM with RDP port open (3389)
+- Running VM with at least one service configured
 - Stopped VM with SPICE display configured (qxl or spice in hardware settings)
 
-Check the VM's display hardware in Proxmox VE → Hardware → Display → set to **SPICE (qxl)**.
+Check the VM's display hardware in Proxmox VE → Hardware → Display → set to **SPICE (qxl)**, or configure a service for the VM via **Connect → Services...**.
 
 </details>
 
@@ -310,15 +402,20 @@ Check the VM's display hardware in Proxmox VE → Hardware → Display → set t
 </details>
 
 <details>
-<summary><strong>RDP button not appearing</strong></summary>
+<summary><strong>Connect button has no items</strong></summary>
 
-The RDP button appears only when:
-1. **RDP** is enabled in Settings → Viewer
-2. The VM is running
-3. The QEMU guest agent is active and reports an IP address
-4. Port 3389 is open on that IP
+The Connect dropdown shows SPICE, VNC and any configured services. If it appears empty:
+- Ensure SPICE or VNC are enabled in Settings → Viewer
+- Configure services for the VM via **Connect → Services...**
 
-Check that `qemu-guest-agent` is installed and running inside the VM, and that **QEMU Guest Agent** is enabled in Proxmox VE VM Options.
+</details>
+
+<details>
+<summary><strong>Service not launching (RDP, SSH, etc.)</strong></summary>
+
+- Verify the launcher executable path is correct and the tool is installed
+- Ensure the VM's guest agent is active so its IP can be resolved, or set an IP override in the service configuration
+- Check that the port is reachable from your machine
 
 </details>
 
@@ -326,7 +423,7 @@ Check that `qemu-guest-agent` is installed and running inside the VM, and that *
 <summary><strong>Agent badge not showing or always gray</strong></summary>
 
 - The agent badge is only visible on QEMU VMs (not LXC containers)
-- The badge is always shown if the agent is configured in Proxmox VE VM Options, but will be gray if **Ping guest agent** is disabled in Settings → Viewer
+- The badge is shown if the agent is configured in Proxmox VE VM Options, but stays gray until **Ping guest agent** is enabled in Settings → Viewer
 - Enable **Ping guest agent (QEMU only)** in Settings → Viewer to get live green/red status
 - Ensure `qemu-guest-agent` is installed and running inside the VM
 
