@@ -5,9 +5,9 @@
 
 using YamlDotNet.Serialization;
 
-namespace Corsinvest.ProxmoxVE.Vdi.Config;
+namespace Corsinvest.ProxmoxVE.Vdi.Config.Models;
 
-internal class VdiConfig
+internal class AppConfig
 {
     public const string ThemeSystem = "System";
     public const string ThemeLight = "Light";
@@ -39,20 +39,13 @@ internal class VdiConfig
     public string ViewerPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// Path to RDP client executable (mstsc.exe on Windows, xfreerdp on Linux/Mac)
-    /// Leave empty to use the system default
-    /// </summary>
-    public string RdpPath { get; set; } = string.Empty;
-
-    /// <summary>
     /// UI theme: System, Light, Dark
     /// </summary>
     public string Theme { get; set; } = ThemeDark;
 
-    /// <summary>
-    /// List of PVE clusters/hosts
-    /// </summary>
-    public List<VdiHost> Hosts { get; set; } = [];
+    /// <summary>Legacy field — migrates "hosts" from config files older than v1.3.0.</summary>
+    public List<ClusterConfig> Hosts { get; set; } = [];
+    public List<ClusterConfig> Clusters { get; set; } = [];
 
     // Appearance
 
@@ -85,9 +78,6 @@ internal class VdiConfig
 
     /// <summary>Enable VNC console (default true)</summary>
     public bool EnableVnc { get; set; } = true;
-
-    /// <summary>Enable RDP detection (default false — requires IP scan)</summary>
-    public bool EnableRdp { get; set; } = false;
 
     /// <summary>Ping QEMU guest agent to detect if running (default false)</summary>
     public bool EnableAgentPing { get; set; } = false;

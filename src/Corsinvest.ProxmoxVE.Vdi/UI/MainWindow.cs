@@ -4,7 +4,7 @@
  */
 
 using Corsinvest.ProxmoxVE.Api;
-using Corsinvest.ProxmoxVE.Vdi.Config;
+using Corsinvest.ProxmoxVE.Vdi.Config.Models;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 using Corsinvest.ProxmoxVE.Vdi.UI.Models;
 using AGrid = Avalonia.Controls.Grid;
@@ -12,11 +12,12 @@ using AGrid = Avalonia.Controls.Grid;
 namespace Corsinvest.ProxmoxVE.Vdi.UI;
 
 /// <summary>State and UI controls for the main window.</summary>
-internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig config)
+internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfig config, string vdiUser, string vdiPassword)
 {
+
     private readonly PveClient _client = client;
-    private readonly VdiHost _host = host;
-    private readonly VdiConfig _config = config;
+    private readonly ClusterConfig _host = host;
+    private readonly AppConfig _config = config;
 
     private readonly List<ResourceRow> _allRows = [];
     private string _tagColorMap = string.Empty;
@@ -26,12 +27,10 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
     // cache
     // key=VmId, value=hasSpice — invalidated when VM transitions between running and stopped
     private readonly Dictionary<long, bool> _spiceConfigCache = [];
-    // key=VmId, value=(hasRdp, ip) — cleared on each refresh when VM is not running
-    private readonly Dictionary<long, (bool HasRdp, string? Ip)> _rdpCache = [];
     // key=VmId, value=osType — read once from Config, never invalidated
     private readonly Dictionary<long, string> _osTypeCache = [];
     // key=VmId, value=SpiceFeatures — read from Config, refreshed when VM stops/starts
-    private readonly Dictionary<long, SpiceFeatures> _featuresCache = [];
+    private readonly Dictionary<long, VmFeatures> _featuresCache = [];
     // key=VmId, value=(agentRunning, checkedAt) — re-checked only after AgentPingCacheSeconds
     private readonly Dictionary<long, (bool Running, DateTime CheckedAt)> _agentPingCache = [];
     private const int AgentPingCacheSeconds = 60;
@@ -93,7 +92,6 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
     private readonly StackPanel _listContent = new() { Spacing = 16, IsVisible = false };
 
     private ScrollViewer? _sidebar;
-    private StackPanel? _toolbar;
 
     private readonly TextBox _txtSearch = new() { Watermark = L("SearchWatermark") };
     private readonly StackPanel _nodeFilters = new() { Spacing = 4 };
@@ -141,6 +139,7 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
     };
 
     private Window? _window;
+    private Button? _btnRefresh;
     private ToggleButton? _btnAutoRef;
 
     internal static WindowIcon AppIcon()
@@ -172,7 +171,7 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
 
     public Window Build()
     {
-        var btnRefresh = new Button
+        _btnRefresh = new Button
         {
             Content = AppIcons.Toolbar(AppIcons.Refresh),
             Padding = new Thickness(6, 4),
@@ -180,6 +179,7 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             BorderBrush = Brushes.Transparent,
             BorderThickness = new Thickness(0)
         };
+        var btnRefresh = _btnRefresh;
 
         var autoRefLabel = new TextBlock
         {
@@ -246,15 +246,13 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             VerticalAlignment = VerticalAlignment.Center
         };
 
-        _toolbar = new StackPanel
+        var btnPanel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 4,
             VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            IsEnabled = false
+            HorizontalAlignment = HorizontalAlignment.Right
         };
-        var btnPanel = _toolbar;
         btnPanel.Children.Add(btnRefresh);
         btnPanel.Children.Add(btnAutoRef);
         btnPanel.Children.Add(btnMore);
@@ -381,7 +379,7 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
 
         void ApplyDefaultView()
         {
-            var isList = _config.DefaultView == VdiConfig.ViewList;
+            var isList = _config.DefaultView == AppConfig.ViewList;
             _cardContent.IsVisible = !isList;
             _listContent.IsVisible = isList;
             scrollContent.HorizontalScrollBarVisibility = isList ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
@@ -427,7 +425,6 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
         {
             var prevEnableSpice = _config.EnableSpice;
             var prevEnableVnc = _config.EnableVnc;
-            var prevEnableRdp = _config.EnableRdp;
             var prevEnableAgentPing = _config.EnableAgentPing;
             var prevShowNodes = _config.ShowNodes;
             var prevShowPools = _config.ShowPools;
@@ -443,20 +440,19 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
             UpdateViewerWarning();
 
             // Protocol flags changed → clear relevant caches
-            if (_config.EnableSpice != prevEnableSpice
-                || _config.EnableAgentPing != prevEnableAgentPing
-                || _config.ViewerPath != prevViewerPath)
+            if (_config.EnableSpice != prevEnableSpice || _config.ViewerPath != prevViewerPath)
             {
                 _spiceConfigCache.Clear();
                 _featuresCache.Clear();
             }
-
-            if (_config.EnableRdp != prevEnableRdp) { _rdpCache.Clear(); }
+            if (_config.EnableAgentPing != prevEnableAgentPing)
+            {
+                _agentPingCache.Clear();
+            }
 
             // Newly enabled sidebar sections need data → refresh
             var needsRefresh = (_config.EnableSpice != prevEnableSpice)
                             || (_config.EnableVnc != prevEnableVnc)
-                            || (_config.EnableRdp != prevEnableRdp)
                             || (_config.EnableAgentPing != prevEnableAgentPing)
                             || (_config.ShowNodes && !prevShowNodes)
                             || (_config.ShowPools && !prevShowPools)
@@ -480,14 +476,24 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
         var autoRefTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         autoRefTimer.Tick += async (_, _) =>
         {
-            if (_isRefreshing) return;
+            if (_isRefreshing)
+            {
+                return;
+            }
+
             await RefreshAsync();
         };
 
         btnAutoRef.IsCheckedChanged += (_, _) =>
         {
-            if (btnAutoRef.IsChecked == true) autoRefTimer.Start();
-            else autoRefTimer.Stop();
+            if (btnAutoRef.IsChecked == true)
+            {
+                autoRefTimer.Start();
+            }
+            else
+            {
+                autoRefTimer.Stop();
+            }
         };
 
         _window.Closing += (_, _) => autoRefTimer.Stop();
@@ -512,7 +518,7 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
     private static byte ChipAlpha => AppColors.IsDark ? (byte)40 : (byte)20;
 
     private static Border StatChipDot(TextBlock valueLabel, Color dotColor, string label)
-        => new Border
+        => new()
         {
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 4),
@@ -544,7 +550,7 @@ internal partial class MainWindow(PveClient client, VdiHost host, VdiConfig conf
         };
 
     private static Border StatChipIcon(string iconData, TextBlock valueLabel, Color iconColor, string label)
-        => new Border
+        => new()
         {
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 4),

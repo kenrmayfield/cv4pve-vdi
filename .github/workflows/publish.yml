@@ -6,12 +6,11 @@ on:
       - 'v*'
 
 jobs:
-  call-publish:
-    uses: Corsinvest/.github/.github/workflows/cv4pve-cli-publish.yml@main
+  publish:
+    uses: Corsinvest/.github/.github/workflows/cv4pve-tools-publish.yml@main
     secrets:
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
     with:
       project-name: cv4pve-vdi
       project-path: src/Corsinvest.ProxmoxVE.Vdi/Corsinvest.ProxmoxVE.Vdi.csproj
-      winget-id: Corsinvest.cv4pve.vdi
-      use-changelog: true

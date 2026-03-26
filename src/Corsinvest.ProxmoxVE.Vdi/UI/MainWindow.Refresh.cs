@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-using System.Text.RegularExpressions;
 using Corsinvest.ProxmoxVE.Api.Extension;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Cluster;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
 using Corsinvest.ProxmoxVE.Vdi.Services;
+using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 using Corsinvest.ProxmoxVE.Vdi.UI.Models;
+using System.Text.RegularExpressions;
 
 namespace Corsinvest.ProxmoxVE.Vdi.UI;
 
@@ -20,7 +21,8 @@ internal partial class MainWindow
 
         _isRefreshing = true;
 
-        _toolbar?.IsEnabled = false;
+        _btnRefresh?.IsEnabled = false;
+        _btnAutoRef?.IsEnabled = false;
 
         _progressBar.IsVisible = true;
         _progressBar.Value = 0;
@@ -53,14 +55,8 @@ internal partial class MainWindow
 
             _progressBar.Value = 20;
 
-            // invalidate RDP cache for VMs no longer running
+            // invalidate SPICE config cache for running VMs — status.current is the live source of truth
             var runningIds = vms.Where(v => v.IsRunning).Select(v => v.VmId).ToHashSet();
-            foreach (var id in _rdpCache.Keys.Where(id => !runningIds.Contains(id)).ToList())
-            {
-                _rdpCache.Remove(id);
-            }
-
-            // invalidate SPICE cache for VMs back to running (config may have changed)
             foreach (var id in _spiceConfigCache.Keys.Where(id => runningIds.Contains(id)).ToList())
             {
                 _spiceConfigCache.Remove(id);
@@ -72,7 +68,7 @@ internal partial class MainWindow
             foreach (var item in nodes)
             {
                 var privs = EffectivePrivs($"/nodes/{item.Node}").ToHashSet();
-                _allRows.Add(new ResourceRow(item, false, false, null, false, privs.Contains("Sys.Console"), string.Empty));
+                _allRows.Add(new ResourceRow(item, false, false, privs.Contains("Sys.Console"), string.Empty));
             }
 
             foreach (var item in vms.Where(v => v.VmType == VmType.Lxc).ToList())
@@ -81,7 +77,7 @@ internal partial class MainWindow
                 var canPower = privs.Contains("VM.PowerMgmt");
                 var canConsole = privs.Contains("VM.Console");
                 var hasSpice = _config.EnableSpice && item.IsRunning && canConsole;
-                _allRows.Add(new ResourceRow(item, hasSpice, false, null, canPower, canConsole, "linux"));
+                _allRows.Add(new ResourceRow(item, hasSpice, canPower, canConsole, "linux"));
             }
 
             // rebuild node filter checkboxes
@@ -125,7 +121,7 @@ internal partial class MainWindow
             var totalQemu = qemuToCheck.Count;
             var doneQemu = 0;
 
-            // add all QEMU as placeholders first, SPICE/RDP resolved progressively
+            // add all QEMU as placeholders first, SPICE resolved progressively
             foreach (var item in qemuVms)
             {
                 var privs = EffectivePrivs($"/vms/{item.VmId}").ToHashSet();
@@ -133,9 +129,8 @@ internal partial class MainWindow
                 var canConsole = privs.Contains("VM.Console");
                 var osType = _osTypeCache.GetValueOrDefault(item.VmId, string.Empty);
                 var hasSpice = _config.EnableSpice && _spiceConfigCache.GetValueOrDefault(item.VmId, false);
-                var (hasRdp, rdpIp) = _rdpCache.GetValueOrDefault(item.VmId);
-                var features = _featuresCache.GetValueOrDefault(item.VmId, SpiceFeatures.None);
-                _allRows.Add(new ResourceRow(item, hasSpice, hasRdp, rdpIp, canPower, canConsole, osType, features));
+                var features = _featuresCache.GetValueOrDefault(item.VmId, VmFeatures.None);
+                _allRows.Add(new ResourceRow(item, hasSpice, canPower, canConsole, osType, features));
             }
 
             UpdateStats(nodes.Count);
@@ -149,71 +144,27 @@ internal partial class MainWindow
                     {
                         bool hasSpice;
                         string osType;
-                        SpiceFeatures features;
+                        VmFeatures features;
 
                         if (v.IsRunning)
                         {
                             var vm = _client.Nodes[v.Node].Qemu[v.VmId];
 
-                            static async Task<bool> PingWithTimeout(Task<Api.Result> pingTask, int timeoutMs)
+                            var status = await vm.Status.Current.GetAsync();
+                            hasSpice = status?.Spice == true;
+                            var agentRunning = await GetAgentRunningAsync(vm, v.VmId);
+
+                            if (_osTypeCache.TryGetValue(v.VmId, out var value))
                             {
-                                var timeout = Task.Delay(timeoutMs);
-                                var completed = await Task.WhenAny(pingTask, timeout);
-                                if (completed == timeout) { return false; }
-                                return pingTask.Result?.IsSuccessStatusCode == true;
-                            }
-
-                            if (_osTypeCache.ContainsKey(v.VmId))
-                            {
-                                var stTask = vm.Status.Current.GetAsync();
-                                await stTask;
-                                hasSpice = stTask.Result?.Spice == true;
-                                osType = _osTypeCache[v.VmId];
-                                var cached = _featuresCache.GetValueOrDefault(v.VmId, SpiceFeatures.None);
-
-                                bool agentRunning;
-                                if (!_config.EnableAgentPing)
-                                {
-                                    agentRunning = false;
-                                }
-                                else if (_agentPingCache.TryGetValue(v.VmId, out var pingEntry)
-                                      && (DateTime.Now - pingEntry.CheckedAt).TotalSeconds < AgentPingCacheSeconds)
-                                {
-                                    agentRunning = pingEntry.Running;
-                                }
-                                else
-                                {
-                                    agentRunning = await PingWithTimeout(vm.Agent.Ping.Ping(), AgentPingTimeoutMs);
-                                    _agentPingCache[v.VmId] = (agentRunning, DateTime.Now);
-                                }
-
+                                osType = value;
+                                var cached = _featuresCache.GetValueOrDefault(v.VmId, VmFeatures.None);
                                 features = cached with { AgentRunning = agentRunning };
                             }
                             else
                             {
-                                var stTask = vm.Status.Current.GetAsync();
-                                var cfgTask = vm.Config.GetAsync();
-                                await Task.WhenAll(stTask, cfgTask);
-                                hasSpice = stTask.Result?.Spice == true;
-                                var cfg = cfgTask.Result;
+                                var cfg = await vm.Config.GetAsync();
                                 osType = cfg?.OsType?.ToLowerInvariant() ?? string.Empty;
                                 _osTypeCache[v.VmId] = osType;
-                                bool agentRunning;
-                                if (!_config.EnableAgentPing)
-                                {
-                                    agentRunning = false;
-                                }
-                                else if (_agentPingCache.TryGetValue(v.VmId, out var pingEntry)
-                                            && (DateTime.Now - pingEntry.CheckedAt).TotalSeconds < AgentPingCacheSeconds)
-                                {
-                                    agentRunning = pingEntry.Running;
-                                }
-                                else
-                                {
-                                    agentRunning = await PingWithTimeout(vm.Agent.Ping.Ping(), AgentPingTimeoutMs);
-                                    _agentPingCache[v.VmId] = (agentRunning, DateTime.Now);
-                                }
-
                                 features = BuildFeatures(cfg, agentRunning);
                                 _featuresCache[v.VmId] = features;
                             }
@@ -239,8 +190,6 @@ internal partial class MainWindow
                                 var old = _allRows[idx];
                                 _allRows[idx] = new ResourceRow(v,
                                                                 hasSpice,
-                                                                old.HasRdp,
-                                                                old.RdpIp,
                                                                 old.CanPower,
                                                                 old.CanConsole,
                                                                 osType,
@@ -259,55 +208,6 @@ internal partial class MainWindow
 
             _progressBar.Value = 80;
 
-            // 5. RDP — only if enabled for this host, only running QEMU not cached, chunks of 5
-            var rdpToCheck = _config.EnableRdp
-                                ? qemuVms.Where(v => v.IsRunning && !_rdpCache.ContainsKey(v.VmId)).ToList()
-                                : [];
-            var totalRdp = rdpToCheck.Count;
-            var doneRdp = 0;
-
-            foreach (var chunk in rdpToCheck.Chunk(5))
-            {
-                await Task.WhenAll(chunk.Select(async v =>
-                {
-                    try
-                    {
-                        var ip = await VmService.GetVmIpAsync(_client, v.Node, v.VmId);
-                        if (ip is null)
-                        {
-                            _rdpCache[v.VmId] = (false, null);
-                            return;
-                        }
-
-                        var hasRdp = await VmService.IsRdpOpenAsync(ip);
-                        _rdpCache[v.VmId] = (hasRdp, hasRdp
-                                                ? ip
-                                                : null);
-
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            var idx = _allRows.FindIndex(r => r.Resource.VmId == v.VmId);
-                            if (idx >= 0)
-                            {
-                                var old = _allRows[idx];
-                                _allRows[idx] = new ResourceRow(v,
-                                                                old.CanSpice,
-                                                                hasRdp,
-                                                                hasRdp ? ip : null,
-                                                                old.CanPower,
-                                                                old.CanConsole,
-                                                                old.OsType);
-                            }
-                        });
-                    }
-                    catch { _rdpCache[v.VmId] = (false, null); }
-                }));
-
-                doneRdp += chunk.Length;
-                _progressBar.Value = 80 + (doneRdp * 18 / Math.Max(totalRdp, 1));
-                ApplyFilter();
-            }
-
             // rebuild pool filter — only if enabled and only pools of VDI-actionable VMs
             if (_config.ShowPools)
             {
@@ -315,7 +215,7 @@ internal partial class MainWindow
                     .Where(r => r.HasAnyVdiAction && !string.IsNullOrEmpty(r.Pool))
                     .Select(r => r.Pool)
                     .Distinct()
-                    .OrderBy(p => p)
+                    .Order()
                     .ToList();
                 var knownPools = _poolFilters.Children.OfType<CheckBox>().Select(c => c.Tag as string).ToHashSet();
                 foreach (var pool in allPools.Where(p => !knownPools.Contains(p)))
@@ -334,7 +234,7 @@ internal partial class MainWindow
             // rebuild tag filters — only if enabled and only tags of VDI-actionable VMs
             if (_config.ShowTags)
             {
-                var allTags = _allRows.Where(r => r.HasAnyVdiAction).SelectMany(r => r.Tags).Distinct().OrderBy(t => t).ToList();
+                var allTags = _allRows.Where(r => r.HasAnyVdiAction).SelectMany(r => r.Tags).Distinct().Order().ToList();
                 var existingTags = _tagFilters.Children.OfType<CheckBox>().Select(c => c.Tag as string).ToHashSet();
                 foreach (var tag in allTags.Where(t => !existingTags.Contains(t)))
                 {
@@ -350,7 +250,8 @@ internal partial class MainWindow
             }
 
             ApplyFilter();
-            _toolbar?.IsEnabled = true;
+            _btnRefresh?.IsEnabled = true;
+            _btnAutoRef?.IsEnabled = true;
             _progressBar.Value = 100;
         }
         catch (Exception ex)
@@ -361,7 +262,8 @@ internal partial class MainWindow
         {
             _progressBar.IsVisible = false;
             _isRefreshing = false;
-            _toolbar?.IsEnabled = true;
+            _btnRefresh?.IsEnabled = true;
+            _btnAutoRef?.IsEnabled = true;
         }
     }
 
@@ -402,9 +304,27 @@ internal partial class MainWindow
         }
     }
 
-    private static SpiceFeatures BuildFeatures(VmConfigQemu? cfg, bool agentRunning)
+    private async Task<bool?> GetAgentRunningAsync(dynamic vm, long vmId)
     {
-        if (cfg is null) { return SpiceFeatures.None; }
+        if (!_config.EnableAgentPing) { return null; }
+
+        if (_agentPingCache.TryGetValue(vmId, out var pingEntry)
+            && (DateTime.Now - pingEntry.CheckedAt).TotalSeconds < AgentPingCacheSeconds)
+        {
+            return pingEntry.Running;
+        }
+
+        var timeout = Task.Delay(AgentPingTimeoutMs);
+        Task<Api.Result> pingTask = vm.Agent.Ping.Ping();
+        var completed = await Task.WhenAny(pingTask, timeout);
+        var running = completed != timeout && pingTask.Result?.IsSuccessStatusCode == true;
+        _agentPingCache[vmId] = (running, DateTime.Now);
+        return running;
+    }
+
+    private static VmFeatures BuildFeatures(VmConfigQemu? cfg, bool? agentRunning)
+    {
+        if (cfg is null) { return VmFeatures.None; }
 
         var audio = cfg.Audio0?.Contains("driver=spice") == true;
         var usbRedirect = cfg.ExtensionData
@@ -412,70 +332,7 @@ internal partial class MainWindow
                              .Any(kv => kv.Value?.ToString()?.Contains("host=spice") == true) == true;
 
         var clipboard = cfg.SpiceEnhancements?.Contains("clipboard") == true;
-        return new SpiceFeatures(audio, usbRedirect, cfg.AgentEnabled, agentRunning, clipboard);
-    }
-
-    internal async Task<bool> ConfirmAsync(string message)
-    {
-        var tcs = new TaskCompletionSource<bool>();
-        var dlg = new Window
-        {
-            Title = L("Confirm"),
-            Width = 320,
-            SizeToContent = SizeToContent.Height,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize = false
-        };
-
-        var btnYes = new Button
-        {
-            Content = L("Yes"),
-            Width = 80,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-
-        var btnNo = new Button
-        {
-            Content = L("No"),
-            Width = 80,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-
-        btnYes.Click += (_, _) =>
-        {
-            tcs.TrySetResult(true);
-            dlg.Close();
-        };
-
-        btnNo.Click += (_, _) =>
-        {
-            tcs.TrySetResult(false);
-            dlg.Close();
-        };
-
-        dlg.Content = new StackPanel
-        {
-            Margin = new Thickness(20),
-            Spacing = 16,
-            Children =
-            {
-                new TextBlock
-                {
-                    Text = message,
-                    TextWrapping = TextWrapping.Wrap
-                },
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Spacing = 12,
-                    Children = { btnNo, btnYes }
-                }
-            }
-        };
-        dlg.Closed += (_, _) => tcs.TrySetResult(false);
-        await dlg.ShowDialog(_window!);
-        return await tcs.Task;
+        return new VmFeatures(audio, usbRedirect, cfg.AgentEnabled, agentRunning, clipboard);
     }
 
     [GeneratedRegex(@"^usb\d+$")]

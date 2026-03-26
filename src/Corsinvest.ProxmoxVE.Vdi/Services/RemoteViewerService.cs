@@ -3,13 +3,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Corsinvest.ProxmoxVE.Api;
 using Corsinvest.ProxmoxVE.Api.Extension;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
 using Corsinvest.ProxmoxVE.Api.Shared.Utils;
-using Corsinvest.ProxmoxVE.Vdi.Config;
+using Corsinvest.ProxmoxVE.Vdi.Config.Models;
+using System.Text.RegularExpressions;
 
 namespace Corsinvest.ProxmoxVE.Vdi.Services;
 
@@ -18,11 +17,12 @@ internal static partial class RemoteViewerService
     [GeneratedRegex("^(http|https|)://.*$")]
     private static partial Regex ProxyUrlRegex();
 
-    public static async Task<string> LaunchSpiceAsync(PveClient client, string node, long vmId, VmType vmType, VdiConfig config, VdiHost host)
+    private static string ResolveProxy(ClusterConfig host, PveClient client)
+        => string.IsNullOrEmpty(host.Spice.Proxy) ? client.Host : host.Spice.Proxy;
+
+    public static async Task<string> LaunchSpiceAsync(PveClient client, string node, long vmId, VmType vmType, AppConfig config, ClusterConfig host)
     {
-        var proxy = string.IsNullOrEmpty(host.Spice.Proxy)
-            ? client.Host
-            : host.Spice.Proxy;
+        var proxy = ResolveProxy(host, client);
 
         var (success, reasonPhrase, content) = vmType == VmType.Lxc
                                                 ? await client.Nodes[node].Lxc[vmId].Spiceproxy.GetSpiceFileVVAsync(proxy)
@@ -33,11 +33,9 @@ internal static partial class RemoteViewerService
         return LaunchViewer(OverrideProxy(content, proxy), config, host);
     }
 
-    public static async Task<string> LaunchNodeSpiceAsync(PveClient client, string node, VdiConfig config, VdiHost host)
+    public static async Task<string> LaunchNodeSpiceAsync(PveClient client, string node, AppConfig config, ClusterConfig host)
     {
-        var proxy = string.IsNullOrEmpty(host.Spice.Proxy)
-                    ? client.Host
-                    : host.Spice.Proxy;
+        var proxy = ResolveProxy(host, client);
 
         var (success, reasonPhrase, content) = await client.Nodes[node].Spiceshell.GetSpiceFileVVAsync(proxy);
         if (!success) { return reasonPhrase ?? "SPICE shell request failed"; }
@@ -62,7 +60,7 @@ internal static partial class RemoteViewerService
         return string.Join('\n', lines);
     }
 
-    public static async Task<string> LaunchVncAsync(PveClient client, string node, long vmId, VmType vmType, VdiConfig config, string pveAuthCookie)
+    public static async Task<string> LaunchVncAsync(PveClient client, string node, long vmId, VmType vmType, AppConfig config, string pveAuthCookie)
     {
         if (string.IsNullOrWhiteSpace(config.ViewerPath))
         {
@@ -112,9 +110,13 @@ internal static partial class RemoteViewerService
         return string.Empty;
     }
 
-    private static async Task<string> LaunchAndWaitAsync(string vvFile, VdiConfig config)
+    private static async Task<string> LaunchAndWaitAsync(string vvFile, AppConfig config)
     {
-        var startInfo = new ProcessStartInfo { UseShellExecute = false, CreateNoWindow = true };
+        var startInfo = new ProcessStartInfo
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -140,7 +142,7 @@ internal static partial class RemoteViewerService
         }
     }
 
-    private static string LaunchViewer(string content, VdiConfig config, VdiHost host)
+    private static string LaunchViewer(string content, AppConfig config, ClusterConfig host)
     {
         var vvFile = System.IO.Path.GetTempFileName().Replace(".tmp", ".vv");
         File.WriteAllText(vvFile, content);

@@ -66,6 +66,8 @@ internal static class AppIcons
     public const string Usb = "M12,1L8,5H11V14H13V5H16M18.92,9L17.08,9.5L16,14H13V19L14.5,20.5L16,19V14L17,18.5L18.92,18L20.08,13.5C20.36,12.4 19.75,11.3 18.92,9M11,14H8L7,18.5L8.08,18L9,13.5L10,19L11.5,20.5L13,19V14H11Z";
     public const string Clipboard2 = "M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7Z";
     public const string Folder = "M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z";
+    public const string Search = "M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z";
+    public const string Ethernet = "M7,15H1V17H7V15M23,15H17V17H23V15M15,15H9V17H15V15M7,9H1V11H7V9M23,9H17V11H23V9M15,9H9V11H15V9";
 
     public static PathIcon Inner(string data)
         => new()
@@ -94,8 +96,8 @@ internal static class AppIcons
         => new()
         {
             Data = Geometry.Parse(data),
-            Width = 18,
-            Height = 18,
+            Width = 16,
+            Height = 16,
         };
 
     public static PathIcon Row(string data, IBrush? foreground = null)

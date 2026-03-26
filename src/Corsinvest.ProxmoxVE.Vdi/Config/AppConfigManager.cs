@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-using SystemIO = System.IO;
+using Corsinvest.ProxmoxVE.Vdi.Config.Models;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using SystemIO = System.IO;
 
 namespace Corsinvest.ProxmoxVE.Vdi.Config;
 
-internal static class VdiConfigManager
+internal static class AppConfigManager
 {
     private static readonly string ConfigDir = SystemIO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cv4pve", "vdi");
@@ -19,6 +20,7 @@ internal static class VdiConfigManager
     private static readonly ISerializer Serializer = new SerializerBuilder()
         .WithNamingConvention(HyphenatedNamingConvention.Instance)
         .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitEmptyCollections)
+        .WithAttributeOverride<AppConfig>(c => c.Hosts, new YamlIgnoreAttribute())
         .Build();
 
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
@@ -26,20 +28,31 @@ internal static class VdiConfigManager
         .IgnoreUnmatchedProperties()
         .Build();
 
-    public static VdiConfig Load()
+    public static string LaunchersUserFile => SystemIO.Path.Combine(ConfigDir, "launchers.yaml");
+
+    public static AppConfig Load()
     {
-        if (!File.Exists(ConfigFile)) { return new VdiConfig(); }
+        if (!File.Exists(ConfigFile)) { return new AppConfig(); }
         try
         {
-            return Deserializer.Deserialize<VdiConfig>(File.ReadAllText(ConfigFile)) ?? new VdiConfig();
+            var config = Deserializer.Deserialize<AppConfig>(File.ReadAllText(ConfigFile)) ?? new AppConfig();
+
+            // Migration: move legacy "hosts" to "clusters" (config files older than v1.3.0)
+            if (config.Hosts.Count > 0 && config.Clusters.Count == 0)
+            {
+                config.Clusters = config.Hosts;
+                config.Hosts = [];
+            }
+
+            return config;
         }
         catch
         {
-            return new VdiConfig();
+            return new AppConfig();
         }
     }
 
-    public static void Save(VdiConfig config)
+    public static void Save(AppConfig config)
     {
         Directory.CreateDirectory(ConfigDir);
         File.WriteAllText(ConfigFile, Serializer.Serialize(config));
