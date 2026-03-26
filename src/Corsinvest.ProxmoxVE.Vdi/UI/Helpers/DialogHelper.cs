@@ -20,11 +20,11 @@ internal static class DialogHelper
         };
 
         var btnYes = new Button { Content = L("Yes"), Width = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
-        var btnNo  = new Button { Content = L("No"),  Width = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var btnNo = new Button { Content = L("No"), Width = 80, HorizontalContentAlignment = HorizontalAlignment.Center };
 
-        btnYes.Click += (_, _) => { tcs.TrySetResult(true);  dlg.Close(); };
-        btnNo.Click  += (_, _) => { tcs.TrySetResult(false); dlg.Close(); };
-        dlg.Closed   += (_, _) => tcs.TrySetResult(false);
+        btnYes.Click += (_, _) => { tcs.TrySetResult(true); dlg.Close(); };
+        btnNo.Click += (_, _) => { tcs.TrySetResult(false); dlg.Close(); };
+        dlg.Closed += (_, _) => tcs.TrySetResult(false);
 
         dlg.Content = new StackPanel
         {

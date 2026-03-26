@@ -127,7 +127,7 @@ internal partial class MainWindow
             var btn = ActionButton(AppIcons.Play, L("Start"), padding, AppColors.Running);
             btn.Click += async (_, _) =>
             {
-                if (_config.ConfirmStart && !await DialogHelper.ConfirmAsync(_window!,string.Format(L("ConfirmStart"), row.Name))) { return; }
+                if (_config.ConfirmStart && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmStart"), row.Name))) { return; }
                 await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Start);
                 if (_btnAutoRef?.IsChecked != true) { _btnAutoRef!.IsChecked = true; }
                 await RefreshAsync();
@@ -140,7 +140,7 @@ internal partial class MainWindow
             var btn = ActionButton(AppIcons.Stop, L("Shutdown"), padding, AppColors.Shutdown);
             btn.Click += async (_, _) =>
             {
-                if (_config.ConfirmShutdown && !await DialogHelper.ConfirmAsync(_window!,string.Format(L("ConfirmShutdown"), row.Name))) { return; }
+                if (_config.ConfirmShutdown && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmShutdown"), row.Name))) { return; }
                 await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Shutdown);
                 if (_btnAutoRef?.IsChecked != true) { _btnAutoRef!.IsChecked = true; }
                 await RefreshAsync();
