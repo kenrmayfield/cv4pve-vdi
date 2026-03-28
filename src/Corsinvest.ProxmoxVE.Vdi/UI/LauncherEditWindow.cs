@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+using Avalonia.Platform.Storage;
 using Corsinvest.ProxmoxVE.Vdi.Config.Models;
 using Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 
@@ -18,36 +19,14 @@ internal static class LauncherEditWindow
     {
         var isNew = existing is null;
 
-        // Service ID
-        var txtServiceId = new TextBox
-        {
-            Text = existing?.ServiceId ?? string.Empty,
-            Watermark = "e.g. my-rdp-client",
-            IsReadOnly = !isNew,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Tag)
-        };
+        var txtServiceId = UiHelper.TextBox(existing?.ServiceId, "e.g. my-rdp-client", AppIcons.Tag);
+        txtServiceId.IsReadOnly = !isNew;
 
-        // Display name
-        var txtDisplayName = new TextBox
-        {
-            Text = existing?.DisplayName ?? string.Empty,
-            Watermark = "e.g. My RDP Client",
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Edit)
-        };
+        var txtDisplayName = UiHelper.TextBox(existing?.DisplayName, "e.g. My RDP Client", AppIcons.Edit);
 
-        // Platform
-        var cmbPlatform = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = Enum.GetValues<LauncherPlatform>(),
-            SelectedItem = existing?.Platform ?? LauncherPlatform.Windows,
-            Padding = new Thickness(24, 4, 0, 4)
-        };
-        var cmbPlatformWithIcon = new Grid();
-        cmbPlatformWithIcon.Children.Add(cmbPlatform);
-        cmbPlatformWithIcon.Children.Add(AppIcons.InnerOverlay(AppIcons.Server));
+        var (cmbPlatform, cmbPlatformWithIcon) = UiHelper.ComboBoxWithIcon(Enum.GetValues<LauncherPlatform>(),
+                                                                           AppIcons.Server,
+                                                                           existing?.Platform ?? LauncherPlatform.Windows);
 
         // Default port
         var numPort = new NumericUpDown
@@ -60,41 +39,30 @@ internal static class LauncherEditWindow
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(24, 4, 0, 4)
         };
-        var numPortWithIcon = new Grid();
-        numPortWithIcon.Children.Add(numPort);
-        numPortWithIcon.Children.Add(AppIcons.InnerOverlay(AppIcons.Ethernet));
+        var numPortWithIcon = UiHelper.WithIcon(numPort, AppIcons.Ethernet);
 
         // Executable
-        var txtExecutable = new TextBox
-        {
-            Text = existing?.Executable ?? string.Empty,
-            Watermark = L("ExeWatermark"),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Console)
-        };
+        var txtExecutable = UiHelper.TextBox(existing?.Executable, L("ExeWatermark"), AppIcons.Console);
+
+        var btnBrowseExecutable = UiHelper.IconButton(AppIcons.Folder, "BrowseExecutable", margin: new Thickness(4, 0, 0, 0));
+
+        var executableRow = UiHelper.RowWithButton(txtExecutable, btnBrowseExecutable);
 
         // Arguments
         // {ip}:{port} {?{username}} {extraArgs}
         // {?TEXT} = includi TEXT (con token risolti) solo se tutti i token interni sono non vuoti
-        var txtArguments = new TextBox
-        {
-            Text = existing?.Arguments ?? string.Empty,
-            Watermark = "{ip}:{port} {?{username}} {extraArgs}",
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Console)
-        };
+        var txtArguments = UiHelper.TextBox(existing?.Arguments, "{ip}:{port} {?{username}} {extraArgs}", AppIcons.Edit);
 
         // Extra args
-        var txtExtraArgs = new TextBox
-        {
-            Text = existing?.ExtraArgs ?? string.Empty,
-            Watermark = L("ExtraArgsWatermark"),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Tune)
-        };
+        var txtExtraArgs = UiHelper.TextBox(existing?.ExtraArgs, L("ExtraArgsWatermark"), AppIcons.Tune);
 
         // Flags
-        var chkCredentials = new CheckBox { Content = L("SupportsCredentials"), IsChecked = existing?.SupportsCredentials ?? false };
+        var chkCredentials = new CheckBox
+        {
+            Content = L("SupportsCredentials"),
+            IsChecked = existing?.SupportsCredentials ?? false
+        };
+
         var chkWinCredential = new CheckBox
         {
             Content = L("UseWindowsCredential"),
@@ -110,19 +78,14 @@ internal static class LauncherEditWindow
         // Error / Save
         var lblError = new TextBlock { Foreground = Brushes.Red, IsVisible = false };
 
-        var btnSave = new Button
-        {
-            Content = AppIcons.Toolbar(isNew ? AppIcons.Add : AppIcons.Save),
-            Padding = new Thickness(6, 4),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
-        Avalonia.Controls.ToolTip.SetTip(btnSave, isNew ? L("Add") : L("Save"));
+        var btnSave = UiHelper.IconButton(isNew ? AppIcons.Add : AppIcons.Save, isNew ? "Add" : "Save");
 
         var window = new Window
         {
-            Title = isNew ? L("NewLauncher") : $"{L("EditLauncher")}: {existing!.DisplayName}",
+            Title = isNew
+                    ? L("NewLauncher")
+                    : $"{L("EditLauncher")}: {existing!.DisplayName}",
+
             Width = 440,
             CanResize = false,
             SizeToContent = SizeToContent.Height,
@@ -133,20 +96,13 @@ internal static class LauncherEditWindow
                 Spacing = 10,
                 Children =
                 {
-                    new TextBlock { Text = L("LauncherServiceId"),   FontWeight = FontWeight.Bold },
-                    txtServiceId,
-                    new TextBlock { Text = L("LauncherDisplayName"), FontWeight = FontWeight.Bold },
-                    txtDisplayName,
-                    new TextBlock { Text = L("LauncherPlatform"), FontWeight = FontWeight.Bold },
-                    cmbPlatformWithIcon,
-                    new TextBlock { Text = L("LauncherDefaultPort"), FontWeight = FontWeight.Bold },
-                    numPortWithIcon,
-                    new TextBlock { Text = L("LauncherExecutable"),  FontWeight = FontWeight.Bold },
-                    txtExecutable,
-                    new TextBlock { Text = L("LauncherArguments"),   FontWeight = FontWeight.Bold },
-                    txtArguments,
-                    new TextBlock { Text = L("ExtraArgs"),           FontWeight = FontWeight.Bold },
-                    txtExtraArgs,
+                    UiHelper.Label("LauncherServiceId"), txtServiceId,
+                    UiHelper.Label("LauncherDisplayName"), txtDisplayName,
+                    UiHelper.Label("LauncherPlatform"), cmbPlatformWithIcon,
+                    UiHelper.Label("LauncherDefaultPort"), numPortWithIcon,
+                    UiHelper.Label("LauncherExecutable"), executableRow,
+                    UiHelper.Label("LauncherArguments"), txtArguments,
+                    UiHelper.Label("ExtraArgs"), txtExtraArgs,
                     chkCredentials,
                     chkWinCredential,
                     lblError,
@@ -159,6 +115,20 @@ internal static class LauncherEditWindow
                     }
                 }
             }
+        };
+
+        btnBrowseExecutable.Click += async (_, _) =>
+        {
+            var topLevel = TopLevel.GetTopLevel(window);
+            if (topLevel == null) { return; }
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = L("BrowseExecutable"),
+                AllowMultiple = false
+            });
+
+            if (files.Count > 0) { txtExecutable.Text = files[0].Path.LocalPath; }
         };
 
         btnSave.Click += (_, _) =>

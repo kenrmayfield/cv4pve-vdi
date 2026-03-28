@@ -26,15 +26,15 @@ internal partial class MainWindow
 
         var miUpdate = new MenuItem
         {
-            Header = AppIcons.WithText(AppIcons.Update, L("UpdateAvailable"), new SolidColorBrush(Colors.OrangeRed)),
+            Header = UiHelper.WithText(AppIcons.Update, L("UpdateAvailable"), new SolidColorBrush(Colors.OrangeRed)),
             IsVisible = false
         };
 
-        var menuItemDocs = new MenuItem { Header = AppIcons.WithText(AppIcons.Book, L("Documentation")) };
-        var menuItemRelease = new MenuItem { Header = AppIcons.WithText(AppIcons.Star, L("ReleaseNotes")) };
-        var menuItemSupport = new MenuItem { Header = AppIcons.WithText(AppIcons.Globe, L("Support")) };
-        var menuItemBug = new MenuItem { Header = AppIcons.WithText(AppIcons.Bug, L("ReportBug")) };
-        var menuItemFeature = new MenuItem { Header = AppIcons.WithText(AppIcons.Info, L("RequestFeature")) };
+        var menuItemDocs = new MenuItem { Header = UiHelper.WithText(AppIcons.Book, L("Documentation")) };
+        var menuItemRelease = new MenuItem { Header = UiHelper.WithText(AppIcons.Star, L("ReleaseNotes")) };
+        var menuItemSupport = new MenuItem { Header = UiHelper.WithText(AppIcons.Globe, L("Support")) };
+        var menuItemBug = new MenuItem { Header = UiHelper.WithText(AppIcons.Bug, L("ReportBug")) };
+        var menuItemFeature = new MenuItem { Header = UiHelper.WithText(AppIcons.Info, L("RequestFeature")) };
 
         var versionHeader = new TextBlock
         {
@@ -69,17 +69,10 @@ internal partial class MainWindow
         menuItemBug.Click += (_, _) => OpenUrl(ApplicationHelper.GetBugReportUrl(_pveVersion));
         menuItemFeature.Click += (_, _) => OpenUrl(ApplicationHelper.FeatureRequestUrl);
 
-        var btn = new Button
-        {
-            Padding = new Thickness(6, 4),
-            Margin = new Thickness(4, 0, 0, 0),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
+        var btn = UiHelper.IconButton(AppIcons.DotsVertical, margin: new Thickness(4, 0, 0, 0));
 
         var btnGrid = new Grid();
-        btnGrid.Children.Add(AppIcons.Toolbar(AppIcons.DotsVertical));
+        btnGrid.Children.Add(UiHelper.Icon(AppIcons.DotsVertical));
         btnGrid.Children.Add(updateBadge);
         btn.Content = btnGrid;
 
@@ -94,7 +87,7 @@ internal partial class MainWindow
 
         UpdateChecker.StartBackground((version, url) =>
         {
-            miUpdate.Header = AppIcons.WithText(AppIcons.Update, $"{version} {L("UpdateAvailable")}", new SolidColorBrush(Colors.OrangeRed));
+            miUpdate.Header = UiHelper.WithText(AppIcons.Update, $"{version} {L("UpdateAvailable")}", new SolidColorBrush(Colors.OrangeRed));
             miUpdate.IsVisible = true;
             miUpdate.Click += (_, _) => OpenUrl(url);
         });

@@ -96,19 +96,6 @@ internal partial class MainWindow
         return panel;
     }
 
-    private static Button ActionButton(string icon, string tooltip, Thickness padding, Color? foreground = null)
-    {
-        var btn = new Button
-        {
-            Content = AppIcons.Row(icon, foreground.HasValue ? new SolidColorBrush(foreground.Value) : null),
-            Padding = padding,
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
-        Avalonia.Controls.ToolTip.SetTip(btn, tooltip);
-        return btn;
-    }
 
     internal void AddActionButtons(DockPanel panel, ResourceRow row, bool isCard)
     {
@@ -124,7 +111,7 @@ internal partial class MainWindow
 
         if (_config.ShowStartButton && row.CanPower && !row.Resource.IsRunning)
         {
-            var btn = ActionButton(AppIcons.Play, L("Start"), padding, AppColors.Running);
+            var btn = UiHelper.IconButton(AppIcons.Play, "Start", padding, size: 14, foregroundColor: AppColors.Running);
             btn.Click += async (_, _) =>
             {
                 if (_config.ConfirmStart && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmStart"), row.Name))) { return; }
@@ -137,7 +124,7 @@ internal partial class MainWindow
 
         if (_config.ShowShutdownButton && row.CanPower && row.Resource.IsRunning)
         {
-            var btn = ActionButton(AppIcons.Stop, L("Shutdown"), padding, AppColors.Shutdown);
+            var btn = UiHelper.IconButton(AppIcons.Stop, "Shutdown", padding, size: 14, foregroundColor: AppColors.Shutdown);
             btn.Click += async (_, _) =>
             {
                 if (_config.ConfirmShutdown && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmShutdown"), row.Name))) { return; }
@@ -161,14 +148,14 @@ internal partial class MainWindow
         // SPICE and VNC as first entries
         if (row.CanSpice)
         {
-            var item = new MenuItem { Header = AppIcons.WithText(AppIcons.Spice, L("Spice")) };
+            var item = new MenuItem { Header = UiHelper.WithText(AppIcons.Spice, L("Spice")) };
             item.Click += async (_, _) => await LaunchSpiceAsync(row);
             menu.Items.Add(item);
         }
 
         if (_config.EnableVnc && row.CanVnc)
         {
-            var item = new MenuItem { Header = AppIcons.WithText(AppIcons.Vnc, L("Vnc")) };
+            var item = new MenuItem { Header = UiHelper.WithText(AppIcons.Vnc, L("Vnc")) };
             item.Click += async (_, _) => await LaunchVncAsync(row);
             menu.Items.Add(item);
         }
@@ -219,7 +206,7 @@ internal partial class MainWindow
 
         // "Configure services..." — always last, always present
         if (menu.Items.Count > 0) { menu.Items.Add(new Separator()); }
-        var itemConfigure = new MenuItem { Header = AppIcons.WithText(AppIcons.Settings, L("ConfigureServices")) };
+        var itemConfigure = new MenuItem { Header = UiHelper.WithText(AppIcons.Settings, L("ConfigureServices")) };
         itemConfigure.Click += async (_, _) =>
         {
             var vmId = (int)row.Resource.VmId;
@@ -233,7 +220,7 @@ internal partial class MainWindow
         };
         menu.Items.Add(itemConfigure);
 
-        var btnConnect = ActionButton(AppIcons.Network, L("Connect"), padding);
+        var btnConnect = UiHelper.IconButton(AppIcons.Network, "Connect", padding, size: 14);
         btnConnect.Click += (_, _) => menu.Open(btnConnect);
         return btnConnect;
     }
@@ -364,7 +351,7 @@ internal partial class MainWindow
         };
     }
 
-    private StackPanel BuildNodeHeader(string nodeName, ResourceRow? nodeRow)
+    private static StackPanel BuildNodeHeader(string nodeName, ResourceRow? nodeRow)
     {
         var header = new StackPanel
         {

@@ -73,7 +73,7 @@ internal static class ActionListBox
         {
             var btn = new Button
             {
-                Content = AppIcons.Row(tb.Icon),
+                Content = UiHelper.Icon(tb.Icon, 14),
                 Padding = new Thickness(4),
                 Background = Brushes.Transparent
             };
@@ -118,7 +118,7 @@ internal static class ActionListBox
 
             var btn = new Button
             {
-                Content = AppIcons.Row(rb.Icon, rb.Foreground),
+                Content = UiHelper.Icon(rb.Icon, 14, rb.Foreground),
                 Padding = new Thickness(4),
                 Background = Brushes.Transparent
             };
@@ -129,7 +129,7 @@ internal static class ActionListBox
             btnPanel.Children.Add(btn);
         }
 
-        var grid = new Avalonia.Controls.Grid();
+        var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         Avalonia.Controls.Grid.SetColumn(txtLabel, 0);

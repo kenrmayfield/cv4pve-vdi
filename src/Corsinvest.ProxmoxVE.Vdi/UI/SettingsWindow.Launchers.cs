@@ -15,39 +15,20 @@ internal static partial class SettingsWindow
 {
     private static (TabItem Tab, Action Save) BuildTabLaunchers(AppConfig config, Window owner)
     {
-        // Viewer path
-        var txtViewerPath = new TextBox
-        {
-            Text = config.ViewerPath,
-            Watermark = L("ViewerPathWatermark"),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Console)
-        };
+        var txtViewerPath = UiHelper.TextBox(config.ViewerPath, L("ViewerPathWatermark"), AppIcons.Console);
+        var btnBrowseViewer = UiHelper.IconButton(AppIcons.Folder, "SelectSpiceViewer", margin: new Thickness(4, 0, 0, 0));
 
-        var btnBrowseViewer = new Button
-        {
-            Content = AppIcons.Toolbar(AppIcons.Folder),
-            Padding = new Thickness(6, 4),
-            Margin = new Thickness(4, 0, 0, 0),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
-        Avalonia.Controls.ToolTip.SetTip(btnBrowseViewer, L("SelectSpiceViewer"));
-
-        var viewerRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        viewerRow.Add(txtViewerPath, 0);
-        viewerRow.Add(btnBrowseViewer, 1);
+        var viewerRow = UiHelper.RowWithButton(txtViewerPath, btnBrowseViewer);
 
         // Protocol flags
         var chkEnableSpice = new CheckBox
         {
-            Content = AppIcons.WithText(AppIcons.Monitor, L("EnableSpice")),
+            Content = UiHelper.WithText(AppIcons.Monitor, L("EnableSpice")),
             IsChecked = config.EnableSpice
         };
         var chkEnableVnc = new CheckBox
         {
-            Content = AppIcons.WithText(AppIcons.Monitor, L("EnableVnc")),
+            Content = UiHelper.WithText(AppIcons.Monitor, L("EnableVnc")),
             IsChecked = config.EnableVnc
         };
         // Launchers list
@@ -62,7 +43,7 @@ internal static partial class SettingsWindow
         {
             new()
             {
-                Icon    = AppIcons.Add,
+                Icon = AppIcons.Add,
                 Tooltip = L("Add"),
                 OnClick = async () =>
                 {
@@ -75,7 +56,7 @@ internal static partial class SettingsWindow
             },
             new()
             {
-                Icon    = AppIcons.Refresh,
+                Icon = AppIcons.Refresh,
                 Tooltip = L("ResetAllToDefault"),
                 OnClick = async () =>
                 {
@@ -93,10 +74,10 @@ internal static partial class SettingsWindow
         {
             new()
             {
-                Icon          = AppIcons.Edit,
-                Tooltip       = L("Edit"),
+                Icon = AppIcons.Edit,
+                Tooltip = L("Edit"),
                 IsDoubleClick = true,
-                OnClick       = async def =>
+                OnClick = async def =>
                 {
                     var idx = launchers.IndexOf(def);
                     if (idx < 0) { return; }
@@ -113,11 +94,11 @@ internal static partial class SettingsWindow
             },
             new()
             {
-                Icon       = AppIcons.Delete,
-                Tooltip    = L("Delete"),
+                Icon = AppIcons.Delete,
+                Tooltip = L("Delete"),
                 Foreground = Brushes.IndianRed,
-                IsVisible  = def => LauncherEngine.LoadAll().All(b => b.ServiceId != def.ServiceId),
-                OnClick    = def =>
+                IsVisible = def => LauncherEngine.LoadAll().All(b => b.ServiceId != def.ServiceId),
+                OnClick = def =>
                 {
                     launchers.Remove(def);
                     SaveUserOverrides(launchers);
@@ -127,10 +108,10 @@ internal static partial class SettingsWindow
             },
             new()
             {
-                Icon      = AppIcons.Book,
-                Tooltip   = L("Documentation"),
+                Icon = AppIcons.Book,
+                Tooltip = L("Documentation"),
                 IsVisible = def => !string.IsNullOrEmpty(def.DocumentationUrl),
-                OnClick   = def =>
+                OnClick = def =>
                 {
                     if (!string.IsNullOrEmpty(def.DocumentationUrl))
                     {
@@ -151,7 +132,7 @@ internal static partial class SettingsWindow
 
         var tab = new TabItem
         {
-            Header = AppIcons.WithText(AppIcons.Console, L("TabLaunchers")),
+            Header = UiHelper.WithText(AppIcons.Console, L("TabLaunchers")),
             Content = new StackPanel
             {
                 Margin = new Thickness(0, 12, 0, 0),
@@ -159,8 +140,7 @@ internal static partial class SettingsWindow
                 Children =
                 {
                     SectionHeader(L("SectionViewer")),
-                    new TextBlock { Text = L("ViewerPath"), FontWeight = FontWeight.Bold },
-                    viewerRow,
+                    UiHelper.Label("ViewerPath"), viewerRow,
                     SectionHeader(L("SectionProtocols")),
                     new StackPanel
                     {
@@ -207,14 +187,14 @@ internal static partial class SettingsWindow
             var builtin = builtins.FirstOrDefault(b => b.ServiceId == def.ServiceId);
             if (builtin is null) { return true; }
             return def.Arguments != builtin.Arguments
-                || def.ExtraArgs != builtin.ExtraArgs
-                || def.DisplayName != builtin.DisplayName
-                || def.DefaultPort != builtin.DefaultPort
-                || def.SupportsCredentials != builtin.SupportsCredentials
-                || def.UseWindowsCredential != builtin.UseWindowsCredential
-                || def.Executable != builtin.Executable
-                || def.Platform != builtin.Platform
-                || def.DocumentationUrl != builtin.DocumentationUrl;
+                    || def.ExtraArgs != builtin.ExtraArgs
+                    || def.DisplayName != builtin.DisplayName
+                    || def.DefaultPort != builtin.DefaultPort
+                    || def.SupportsCredentials != builtin.SupportsCredentials
+                    || def.UseWindowsCredential != builtin.UseWindowsCredential
+                    || def.Executable != builtin.Executable
+                    || def.Platform != builtin.Platform
+                    || def.DocumentationUrl != builtin.DocumentationUrl;
         }).ToList();
 
         LauncherEngine.SaveUserLaunchers(overrides, AppConfigManager.LaunchersUserFile);

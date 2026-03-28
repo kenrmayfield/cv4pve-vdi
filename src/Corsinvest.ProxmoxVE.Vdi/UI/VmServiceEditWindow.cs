@@ -20,10 +20,12 @@ internal static class VmServiceEditWindow
         // Launcher combo
         var cmbLauncher = new ComboBox
         {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
             ItemsSource = launchers,
-            DisplayMemberBinding = new Avalonia.Data.Binding("DisplayName")
+            DisplayMemberBinding = new Binding("DisplayName"),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(26, 0, 0, 0)
         };
+        var cmbLauncherWithIcon = UiHelper.WithIcon(cmbLauncher, AppIcons.Tag);
 
         if (isEdit)
         {
@@ -48,9 +50,7 @@ internal static class VmServiceEditWindow
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(24, 4, 0, 4)
         };
-        var numPortWithIcon = new Grid();
-        numPortWithIcon.Children.Add(numPort);
-        numPortWithIcon.Children.Add(AppIcons.InnerOverlay(AppIcons.Ethernet));
+        var numPortWithIcon = UiHelper.WithIcon(numPort, AppIcons.Ethernet);
 
         cmbLauncher.SelectionChanged += (_, _) =>
         {
@@ -61,48 +61,16 @@ internal static class VmServiceEditWindow
         };
 
         // Credential source
-        var cmbCredSource = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = Enum.GetValues<CredentialSource>(),
-            SelectedItem = existing?.CredentialSource ?? CredentialSource.None
-        };
+        var (cmbCredSource, cmbCredSourceWithIcon) = UiHelper.ComboBoxWithIcon(Enum.GetValues<CredentialSource>(),
+                                                                               AppIcons.Key,
+                                                                               existing?.CredentialSource ?? CredentialSource.None);
 
-        // IP override
-        var txtIpOverride = new TextBox
-        {
-            Text = existing?.IpOverride ?? string.Empty,
-            Watermark = L("IpOverrideWatermark"),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Network)
-        };
+        var txtIpOverride = UiHelper.TextBox(existing?.IpOverride, L("IpOverrideWatermark"), AppIcons.Network);
+        var txtExtraArgs = UiHelper.TextBox(existing?.ExtraArgs, L("ExtraArgsWatermark"), AppIcons.Tune);
+        var txtUsername = UiHelper.TextBox(existing?.Credentials?.Username, L("Username"), AppIcons.Account);
 
-        // Extra args override
-        var txtExtraArgs = new TextBox
-        {
-            Text = existing?.ExtraArgs ?? string.Empty,
-            Watermark = L("ExtraArgsWatermark"),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Console)
-        };
-
-        // Credentials (shown only when CredentialSource.Config)
-        var txtUsername = new TextBox
-        {
-            Text = existing?.Credentials?.Username ?? string.Empty,
-            Watermark = L("Username"),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Account)
-        };
-
-        var txtPassword = new TextBox
-        {
-            Text = existing?.Credentials?.Password ?? string.Empty,
-            Watermark = L("Password"),
-            PasswordChar = '●',
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            InnerLeftContent = AppIcons.Inner(AppIcons.Lock)
-        };
+        var txtPassword = UiHelper.TextBox(existing?.Credentials?.Password, L("Password"), AppIcons.Lock);
+        txtPassword.PasswordChar = '●';
 
         var credPanel = new StackPanel
         {
@@ -119,19 +87,11 @@ internal static class VmServiceEditWindow
         // Error / Save
         var lblError = new TextBlock { Foreground = Brushes.Red, IsVisible = false };
 
-        var btnSave = new Button
-        {
-            Content = AppIcons.Toolbar(isEdit ? AppIcons.Save : AppIcons.Add),
-            Padding = new Thickness(6, 4),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
-        Avalonia.Controls.ToolTip.SetTip(btnSave, isEdit ? L("Save") : L("Add"));
+        var btnSave = UiHelper.IconButton(isEdit ? AppIcons.Save : AppIcons.Add, isEdit ? "Save" : "Add");
 
         var window = new Window
         {
-            Title = isEdit ? L("EditService") : L("AddService"),
+            Title = L(isEdit ? "EditService" : "AddService"),
             Width = 380,
             CanResize = false,
             SizeToContent = SizeToContent.Height,
@@ -142,16 +102,11 @@ internal static class VmServiceEditWindow
                 Spacing = 10,
                 Children =
                 {
-                    new TextBlock { Text = L("Launcher"), FontWeight = FontWeight.Bold },
-                    cmbLauncher,
-                    new TextBlock { Text = L("Port"), FontWeight = FontWeight.Bold },
-                    numPortWithIcon,
-                    new TextBlock { Text = L("IpOverride"), FontWeight = FontWeight.Bold },
-                    txtIpOverride,
-                    new TextBlock { Text = L("ExtraArgs"), FontWeight = FontWeight.Bold },
-                    txtExtraArgs,
-                    new TextBlock { Text = L("CredentialSource"), FontWeight = FontWeight.Bold },
-                    cmbCredSource,
+                    UiHelper.Label("Launcher"), cmbLauncherWithIcon,
+                    UiHelper.Label("Port"), numPortWithIcon,
+                    UiHelper.Label("IpOverride"), txtIpOverride,
+                    UiHelper.Label("ExtraArgs"), txtExtraArgs,
+                    UiHelper.Label("CredentialSource"), cmbCredSourceWithIcon,
                     credPanel,
                     lblError,
                     new StackPanel

@@ -113,22 +113,17 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
     };
     private readonly CheckBox _chkQemu = new()
     {
-        Content = AppIcons.WithText(AppIcons.Vm, L("TypeVm")),
+        Content = UiHelper.WithText(AppIcons.Vm, L("TypeVm")),
         IsChecked = false
     };
     private readonly CheckBox _chkLxc = new()
     {
-        Content = AppIcons.WithText(AppIcons.Ct, L("TypeCt")),
+        Content = UiHelper.WithText(AppIcons.Ct, L("TypeCt")),
         IsChecked = false
     };
     private readonly Button _btnReset = new()
     {
-        Content = new PathIcon
-        {
-            Data = Geometry.Parse(AppIcons.Close),
-            Width = 12,
-            Height = 12
-        },
+        Content = UiHelper.Icon(AppIcons.Close, 12),
         Padding = new Thickness(4),
         Background = Brushes.Transparent,
         BorderBrush = Brushes.Transparent,
@@ -171,14 +166,7 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
 
     public Window Build()
     {
-        _btnRefresh = new Button
-        {
-            Content = AppIcons.Toolbar(AppIcons.Refresh),
-            Padding = new Thickness(6, 4),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
+        _btnRefresh = UiHelper.IconButton(AppIcons.Refresh);
         var btnRefresh = _btnRefresh;
 
         var autoRefLabel = new TextBlock
@@ -194,7 +182,7 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
             Content = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Children = { AppIcons.Toolbar(AppIcons.AutoRefresh), autoRefLabel }
+                Children = { UiHelper.Icon(AppIcons.AutoRefresh), autoRefLabel }
             },
             Padding = new Thickness(6, 4),
             Background = Brushes.Transparent,
@@ -204,7 +192,7 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
         var btnAutoRef = _btnAutoRef;
         btnAutoRef.IsCheckedChanged += (_, _) => autoRefLabel.IsVisible = btnAutoRef.IsChecked == true;
 
-        var menuItemSettings = new MenuItem { Header = AppIcons.WithText(AppIcons.Settings, L("Settings")) };
+        var menuItemSettings = new MenuItem { Header = UiHelper.WithText(AppIcons.Settings, L("Settings")) };
         var btnMore = BuildHelpMenu(menuItemSettings);
 
         Avalonia.Controls.ToolTip.SetTip(btnRefresh, L("Refresh"));
@@ -562,13 +550,7 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
                 VerticalAlignment = VerticalAlignment.Center,
                 Children =
                 {
-                    new PathIcon
-                    {
-                         Data = Geometry.Parse(iconData),
-                         Width = 13,
-                         Height = 13,
-                         Foreground = new SolidColorBrush(iconColor)
-                    },
+                    UiHelper.Icon(iconData, 13, new SolidColorBrush(iconColor)),
                     valueLabel,
                     new TextBlock
                     {

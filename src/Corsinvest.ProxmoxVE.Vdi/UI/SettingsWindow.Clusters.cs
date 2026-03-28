@@ -22,7 +22,7 @@ internal static partial class SettingsWindow
                 Tooltip = L("Add"),
                 OnClick = () =>
                 {
-                    var dlg = HostEditWindow.Create(null);
+                    var dlg = ClusterEditWindow.Create(null);
                     dlg.Icon = owner.Icon;
                     dlg.ShowDialog<ClusterConfig?>(owner).ContinueWith(t =>
                     {
@@ -52,7 +52,7 @@ internal static partial class SettingsWindow
                     var idx = config.Clusters.IndexOf(cluster);
                     if (idx < 0) { return Task.CompletedTask; }
 
-                    var dlg = HostEditWindow.Create(cluster);
+                    var dlg = ClusterEditWindow.Create(cluster);
                     dlg.Icon = owner.Icon;
                     dlg.ShowDialog<ClusterConfig?>(owner).ContinueWith(t =>
                     {
@@ -93,7 +93,7 @@ internal static partial class SettingsWindow
 
         var tab = new TabItem
         {
-            Header = AppIcons.WithText(AppIcons.Server, L("TabClusters")),
+            Header = UiHelper.WithText(AppIcons.Server, L("TabClusters")),
             Content = new StackPanel
             {
                 Margin = new Thickness(0, 12, 0, 0),
