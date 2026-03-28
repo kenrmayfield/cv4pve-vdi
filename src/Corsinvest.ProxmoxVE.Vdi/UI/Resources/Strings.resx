@@ -30,7 +30,7 @@
   <data name="OtpLabel"><value>OTP (optional)</value></data>
   <data name="OtpWatermark"><value>OTP (leave empty if not required)</value></data>
   <data name="Login"><value>Login</value></data>
-  <data name="ManageHosts"><value>Manage hosts</value></data>
+  <data name="ManageClusters"><value>Manage clusters</value></data>
   <data name="Connecting"><value>Connecting...</value></data>
   <data name="PleaseSelectHost"><value>Please add and select a host.</value></data>
 
@@ -123,6 +123,7 @@
   <data name="LauncherDefaultPort"><value>Default port</value></data>
   <data name="LauncherPlatform"><value>Platform</value></data>
   <data name="LauncherExecutable"><value>Executable</value></data>
+  <data name="BrowseExecutable"><value>Browse for executable...</value></data>
   <data name="ExeWatermark"><value>path to executable (e.g. mstsc.exe)</value></data>
   <data name="LauncherArguments"><value>Arguments template</value></data>
   <data name="SupportsCredentials"><value>Supports credentials</value></data>

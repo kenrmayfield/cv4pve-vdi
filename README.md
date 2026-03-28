@@ -30,12 +30,9 @@ VDI client for Proxmox VE (Made in Italy)
 
 ## Quick Start
 
+Download the latest release from the [releases page](https://github.com/Corsinvest/cv4pve-vdi/releases), extract and run:
+
 ```bash
-# Check available releases at: https://github.com/Corsinvest/cv4pve-vdi/releases
-# Download specific version (replace VERSION with actual version like v1.0.0)
-wget https://github.com/Corsinvest/cv4pve-vdi/releases/download/VERSION/cv4pve-vdi-linux-x64.zip
-unzip cv4pve-vdi-linux-x64.zip
-chmod +x cv4pve-vdi
 ./cv4pve-vdi
 ```
 

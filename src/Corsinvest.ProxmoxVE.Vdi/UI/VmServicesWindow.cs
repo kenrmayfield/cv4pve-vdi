@@ -117,15 +117,7 @@ internal static class VmServicesWindow
 
         refresh = refreshFn;
 
-        var btnSave = new Button
-        {
-            Content = AppIcons.Toolbar(AppIcons.Save),
-            Padding = new Thickness(6, 4),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
-        Avalonia.Controls.ToolTip.SetTip(btnSave, L("Save"));
+        var btnSave = UiHelper.IconButton(AppIcons.Save, "Save");
 
         var window = new Window
         {
@@ -192,6 +184,7 @@ internal static class VmServicesWindow
             Padding = new Thickness(12, 4),
             HorizontalContentAlignment = HorizontalAlignment.Center
         };
+
         var btnCancel = new Button
         {
             Content = L("Cancel"),

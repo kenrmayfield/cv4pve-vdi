@@ -38,7 +38,7 @@ internal partial class MainWindow
 
         var copyBtn = new Button
         {
-            Content = new PathIcon { Data = Geometry.Parse(AppIcons.Clipboard2), Width = 11, Height = 11 },
+            Content = UiHelper.Icon(AppIcons.Clipboard2, 11),
             Padding = new Thickness(5, 2),
             Background = Brushes.Transparent,
             BorderBrush = Brushes.Transparent,
@@ -98,7 +98,7 @@ internal partial class MainWindow
                         Width = 16,
                         Height = 16,
                         Foreground = new SolidColorBrush(accentColor),
-                        VerticalAlignment = VerticalAlignment.Center
+                        VerticalAlignment = VerticalAlignment.Center,
                     },
                     new TextBlock
                     {
@@ -174,7 +174,7 @@ internal partial class MainWindow
             FontSize = 12
         };
 
-        var bannerIcon = AppIcons.Row(AppIcons.Info, new SolidColorBrush(AppColors.NotifyWarning));
+        var bannerIcon = UiHelper.Icon(AppIcons.Info, 14, new SolidColorBrush(AppColors.NotifyWarning));
 
         _persistentBanner = new Border
         {

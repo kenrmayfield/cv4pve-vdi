@@ -22,15 +22,12 @@ internal static partial class SettingsWindow
             Width = 120,
             Padding = new Thickness(26, 0, 0, 0)
         };
-
-        var cmbThemeWithIcon = new Grid();
-        cmbThemeWithIcon.Children.Add(cmbTheme);
-        cmbThemeWithIcon.Children.Add(AppIcons.InnerOverlay(AppIcons.Palette));
+        var cmbThemeWithIcon = UiHelper.WithIcon(cmbTheme, AppIcons.Palette);
 
         var isCard = config.DefaultView != AppConfig.ViewList;
         var btnViewCard = new ToggleButton
         {
-            Content = AppIcons.WithText(AppIcons.ViewGrid, AppConfig.ViewCard),
+            Content = UiHelper.WithText(AppIcons.ViewGrid, AppConfig.ViewCard),
             IsChecked = isCard,
             Padding = new Thickness(8, 4),
             Background = Brushes.Transparent,
@@ -38,7 +35,7 @@ internal static partial class SettingsWindow
         };
         var btnViewList = new ToggleButton
         {
-            Content = AppIcons.WithText(AppIcons.ViewDetail, AppConfig.ViewList),
+            Content = UiHelper.WithText(AppIcons.ViewDetail, AppConfig.ViewList),
             IsChecked = !isCard,
             Padding = new Thickness(8, 4),
             Background = Brushes.Transparent,
@@ -65,16 +62,16 @@ internal static partial class SettingsWindow
             }
         };
 
-        var chkShowBars = new CheckBox { Content = AppIcons.WithText(AppIcons.ChartBar, L("ShowBars")), IsChecked = config.ShowBars };
-        var chkShowNodes = new CheckBox { Content = AppIcons.WithText(AppIcons.Server, L("ShowNodes")), IsChecked = config.ShowNodes };
-        var chkShowPools = new CheckBox { Content = AppIcons.WithText(AppIcons.Folder, L("ShowPools")), IsChecked = config.ShowPools };
-        var chkShowTags = new CheckBox { Content = AppIcons.WithText(AppIcons.Tag, L("ShowTags")), IsChecked = config.ShowTags };
+        var chkShowBars = new CheckBox { Content = UiHelper.WithText(AppIcons.ChartBar, L("ShowBars")), IsChecked = config.ShowBars };
+        var chkShowNodes = new CheckBox { Content = UiHelper.WithText(AppIcons.Server, L("ShowNodes")), IsChecked = config.ShowNodes };
+        var chkShowPools = new CheckBox { Content = UiHelper.WithText(AppIcons.Folder, L("ShowPools")), IsChecked = config.ShowPools };
+        var chkShowTags = new CheckBox { Content = UiHelper.WithText(AppIcons.Tag, L("ShowTags")), IsChecked = config.ShowTags };
 
-        var chkEnableAgentPing = new CheckBox { Content = AppIcons.WithText(AppIcons.Server, L("EnableAgentPing")), IsChecked = config.EnableAgentPing };
+        var chkEnableAgentPing = new CheckBox { Content = UiHelper.WithText(AppIcons.Server, L("EnableAgentPing")), IsChecked = config.EnableAgentPing };
 
-        var chkShowStart = new CheckBox { Content = AppIcons.WithText(AppIcons.Play, L("ShowStartButton"), new SolidColorBrush(AppColors.Running)), IsChecked = config.ShowStartButton };
+        var chkShowStart = new CheckBox { Content = UiHelper.WithText(AppIcons.Play, L("ShowStartButton"), new SolidColorBrush(AppColors.Running)), IsChecked = config.ShowStartButton };
         var chkConfirmStart = new CheckBox { Content = L("AskConfirmation"), IsChecked = config.ConfirmStart, IsEnabled = config.ShowStartButton, HorizontalAlignment = HorizontalAlignment.Right };
-        var chkShowShutdown = new CheckBox { Content = AppIcons.WithText(AppIcons.Stop, L("ShowShutdownButton"), new SolidColorBrush(AppColors.Shutdown)), IsChecked = config.ShowShutdownButton };
+        var chkShowShutdown = new CheckBox { Content = UiHelper.WithText(AppIcons.Stop, L("ShowShutdownButton"), new SolidColorBrush(AppColors.Shutdown)), IsChecked = config.ShowShutdownButton };
         var chkConfirmShutdown = new CheckBox { Content = L("AskConfirmation"), IsChecked = config.ConfirmShutdown, IsEnabled = config.ShowShutdownButton, HorizontalAlignment = HorizontalAlignment.Right };
 
         Avalonia.Controls.Grid.SetColumn(chkConfirmStart, 1);
@@ -85,7 +82,7 @@ internal static partial class SettingsWindow
 
         var tab = new TabItem
         {
-            Header = AppIcons.WithText(AppIcons.Palette, L("TabAppearance")),
+            Header = UiHelper.WithText(AppIcons.Palette, L("TabAppearance")),
             Content = new StackPanel
             {
                 Margin = new Thickness(0, 12, 0, 0),

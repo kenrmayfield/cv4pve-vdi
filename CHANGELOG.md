@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-28
+
+### Added
+- **Browse button for launcher executable** — click the folder icon next to the executable path to pick the file from a dialog instead of typing it manually
+
+### Changed
+- **Port fields** — port number fields now show a distinct icon, easier to tell apart from host/IP fields
+- **Terminology** — "Host" renamed to "Cluster" throughout the interface
+
 ## [1.3.0] - 2026-03-26
 
 ### Added

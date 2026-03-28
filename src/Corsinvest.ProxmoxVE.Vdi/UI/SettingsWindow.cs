@@ -13,15 +13,7 @@ internal static partial class SettingsWindow
 {
     public static Window Create(AppConfig config, Action? onHostsChanged = null, int initialTab = 0, bool clustersOnly = false)
     {
-        var btnSave = new Button
-        {
-            Content = AppIcons.Toolbar(AppIcons.Save),
-            Padding = new Thickness(6, 4),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
-        Avalonia.Controls.ToolTip.SetTip(btnSave, L("Save"));
+        var btnSave = UiHelper.IconButton(AppIcons.Save, "Save");
 
         var btnRow = new StackPanel
         {

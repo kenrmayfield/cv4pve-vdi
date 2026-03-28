@@ -12,7 +12,7 @@ namespace Corsinvest.ProxmoxVE.Vdi.UI;
 
 internal partial class MainWindow
 {
-    private StackPanel BuildMiniBar(string label, double pct, string text)
+    private static StackPanel BuildMiniBar(string label, double pct, string text)
     {
         var header = new AGrid();
         header.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
@@ -22,16 +22,14 @@ internal partial class MainWindow
         {
             Text = label,
             FontSize = 10,
-        }.Secondary(),
-        0);
+        }.Secondary(), 0);
 
         header.Add(new TextBlock
         {
             Text = text,
             FontSize = 10,
             HorizontalAlignment = HorizontalAlignment.Right
-        }.Secondary(),
-        1);
+        }.Secondary(), 1);
 
         return new StackPanel
         {
