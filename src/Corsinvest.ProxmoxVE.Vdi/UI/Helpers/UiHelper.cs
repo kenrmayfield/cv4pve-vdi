@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+using System.Collections;
+
 namespace Corsinvest.ProxmoxVE.Vdi.UI.Helpers;
 
 internal static class UiHelper
@@ -95,7 +97,7 @@ internal static class UiHelper
         => new()
         {
             Text = text ?? string.Empty,
-            Watermark = watermark ?? string.Empty,
+            PlaceholderText = watermark ?? string.Empty,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             InnerLeftContent = iconData != null ? Inner(iconData) : null
         };

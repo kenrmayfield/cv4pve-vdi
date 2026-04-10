@@ -93,7 +93,7 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
 
     private ScrollViewer? _sidebar;
 
-    private readonly TextBox _txtSearch = new() { Watermark = L("SearchWatermark") };
+    private readonly TextBox _txtSearch = new() { PlaceholderText = L("SearchWatermark") };
     private readonly StackPanel _nodeFilters = new() { Spacing = 4 };
     private readonly StackPanel _poolFilters = new() { Spacing = 4 };
     private readonly StackPanel _tagFilters = new() { Spacing = 4 };

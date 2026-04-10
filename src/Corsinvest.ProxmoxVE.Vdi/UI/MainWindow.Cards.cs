@@ -187,14 +187,8 @@ internal partial class MainWindow
             bodyGrid.Add(btnSection, 0, 7);
         }
 
-        card.GetObservable(Avalonia.Input.InputElement.IsPointerOverProperty)
-            .Subscribe(over => card.RenderTransform = new ScaleTransform(
-                over
-                    ? 1.025
-                    : 1,
-                over
-                    ? 1.025
-                    : 1));
+        card.PointerEntered += (_, _) => card.RenderTransform = new ScaleTransform(1.025, 1.025);
+        card.PointerExited += (_, _) => card.RenderTransform = new ScaleTransform(1, 1);
         return card;
     }
 
