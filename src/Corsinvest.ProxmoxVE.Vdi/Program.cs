@@ -3,8 +3,12 @@
  * SPDX-License-Identifier: MIT
  */
 
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Themes.Fluent;
 using Corsinvest.ProxmoxVE.Vdi.Config;
 using Corsinvest.ProxmoxVE.Vdi.UI;
+
+namespace Corsinvest.ProxmoxVE.Vdi;
 
 internal sealed class Program
 {
@@ -13,18 +17,20 @@ internal sealed class Program
     {
         var config = AppConfigManager.Load();
 
-        Window Build() => LoginWindow.Create(config);
+        var lifetime = new ClassicDesktopStyleApplicationLifetime
+        {
+            Args = args,
+            ShutdownMode = ShutdownMode.OnLastWindowClose
+        };
 
-        AppBuilder.Configure<Application>()
-                  .UsePlatformDetect()
-                  .WithApplicationName("cv4pve-vdi")
-                  .UseFluentTheme()
-                  .AfterSetup(b =>
-                  {
-                      if (b.Instance == null) { return; }
+        var builder = AppBuilder.Configure<Application>()
+                                .UsePlatformDetect()
+                                .SetupWithLifetime(lifetime);
 
-                      b.Instance.RequestedThemeVariant = config.ThemeVariant;
-                  })
-                  .StartWithClassicDesktopLifetime(Build, args);
+        builder.Instance!.Styles.Add(new FluentTheme());
+        builder.Instance.RequestedThemeVariant = config.ThemeVariant;
+
+        lifetime.MainWindow = LoginWindow.Create(config);
+        lifetime.Start(args);
     }
 }

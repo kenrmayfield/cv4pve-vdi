@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-10
+
+### Changed
+- The app starts faster and feels more responsive, especially when scrolling through large VM lists
+- Buttons, dropdowns and input fields look sharper and react better to hover and focus
+- Dark mode appearance is more consistent across all windows
+
 ## [1.3.1] - 2026-03-28
 
 ### Added

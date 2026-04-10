@@ -8,6 +8,7 @@ using Corsinvest.ProxmoxVE.Api.Extension;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
 using Corsinvest.ProxmoxVE.Api.Shared.Utils;
 using Corsinvest.ProxmoxVE.Vdi.Config.Models;
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Corsinvest.ProxmoxVE.Vdi.Services;
