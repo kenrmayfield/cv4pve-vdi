@@ -103,7 +103,7 @@ internal partial class MainWindow
                     Content = item.Node,
                     IsChecked = false
                 };
-                chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterNodes, item.Node!, chk.IsChecked == true);
+                chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterNodes, item.Node!, chk.IsChecked is true);
                 _nodeFilters.Children.Add(chk);
             }
 
@@ -150,7 +150,7 @@ internal partial class MainWindow
                             var vm = _client.Nodes[v.Node].Qemu[v.VmId];
 
                             var status = await vm.Status.Current.GetAsync();
-                            hasSpice = status?.Spice == true;
+                            hasSpice = status?.Spice is true;
                             var agentRunning = await GetAgentRunningAsync(vm, v.VmId);
 
                             if (_osTypeCache.TryGetValue(v.VmId, out var value))
@@ -225,7 +225,7 @@ internal partial class MainWindow
                         Content = pool,
                         IsChecked = false
                     };
-                    chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterPools, pool, chk.IsChecked == true);
+                    chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterPools, pool, chk.IsChecked is true);
                     _poolFilters.Children.Add(chk);
                 }
             }
@@ -243,7 +243,7 @@ internal partial class MainWindow
                         Content = tag,
                         IsChecked = false
                     };
-                    chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterTags, tag, chk.IsChecked == true);
+                    chk.IsCheckedChanged += (_, _) => ToggleFilter(_filterTags, tag, chk.IsChecked is true);
                     _tagFilters.Children.Add(chk);
                 }
             }
@@ -316,7 +316,7 @@ internal partial class MainWindow
         var timeout = Task.Delay(AgentPingTimeoutMs);
         Task<Api.Result> pingTask = vm.Agent.Ping.Ping();
         var completed = await Task.WhenAny(pingTask, timeout);
-        var running = completed != timeout && pingTask.Result?.IsSuccessStatusCode == true;
+        var running = completed != timeout && pingTask.Result?.IsSuccessStatusCode is true;
         _agentPingCache[vmId] = (running, DateTime.Now);
         return running;
     }
@@ -325,12 +325,12 @@ internal partial class MainWindow
     {
         if (cfg is null) { return VmFeatures.None; }
 
-        var audio = cfg.Audio0?.Contains("driver=spice") == true;
+        var audio = cfg.Audio0?.Contains("driver=spice") is true;
         var usbRedirect = cfg.ExtensionData
                              ?.Where(kv => UsbRegex().IsMatch(kv.Key))
-                             .Any(kv => kv.Value?.ToString()?.Contains("host=spice") == true) == true;
+                             .Any(kv => kv.Value?.ToString()?.Contains("host=spice") is true) is true;
 
-        var clipboard = cfg.SpiceEnhancements?.Contains("clipboard") == true;
+        var clipboard = cfg.SpiceEnhancements?.Contains("clipboard") is true;
         return new VmFeatures(audio, usbRedirect, cfg.AgentEnabled, agentRunning, clipboard);
     }
 

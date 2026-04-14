@@ -41,8 +41,8 @@ internal static partial class SettingsWindow
             Background = Brushes.Transparent,
             BorderBrush = Brushes.Transparent
         };
-        btnViewCard.IsCheckedChanged += (_, _) => { if (btnViewCard.IsChecked == true) { btnViewList.IsChecked = false; } };
-        btnViewList.IsCheckedChanged += (_, _) => { if (btnViewList.IsChecked == true) { btnViewCard.IsChecked = false; } };
+        btnViewCard.IsCheckedChanged += (_, _) => { if (btnViewCard.IsChecked is true) { btnViewList.IsChecked = false; } };
+        btnViewList.IsCheckedChanged += (_, _) => { if (btnViewList.IsChecked is true) { btnViewCard.IsChecked = false; } };
 
         var viewToggle = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
         viewToggle.Children.Add(btnViewCard);
@@ -77,8 +77,8 @@ internal static partial class SettingsWindow
         Avalonia.Controls.Grid.SetColumn(chkConfirmStart, 1);
         Avalonia.Controls.Grid.SetColumn(chkConfirmShutdown, 1);
 
-        chkShowStart.IsCheckedChanged += (_, _) => chkConfirmStart.IsEnabled = chkShowStart.IsChecked == true;
-        chkShowShutdown.IsCheckedChanged += (_, _) => chkConfirmShutdown.IsEnabled = chkShowShutdown.IsChecked == true;
+        chkShowStart.IsCheckedChanged += (_, _) => chkConfirmStart.IsEnabled = chkShowStart.IsChecked is true;
+        chkShowShutdown.IsCheckedChanged += (_, _) => chkConfirmShutdown.IsEnabled = chkShowShutdown.IsChecked is true;
 
         var tab = new TabItem
         {
@@ -115,16 +115,16 @@ internal static partial class SettingsWindow
         void Save()
         {
             config.Theme = cmbTheme.SelectedItem as string ?? AppConfig.ThemeSystem;
-            config.DefaultView = btnViewList.IsChecked == true ? AppConfig.ViewList : AppConfig.ViewCard;
-            config.ShowBars = chkShowBars.IsChecked == true;
-            config.ShowNodes = chkShowNodes.IsChecked == true;
-            config.ShowPools = chkShowPools.IsChecked == true;
-            config.ShowTags = chkShowTags.IsChecked == true;
-            config.ShowStartButton = chkShowStart.IsChecked == true;
-            config.ConfirmStart = chkConfirmStart.IsChecked == true;
-            config.ShowShutdownButton = chkShowShutdown.IsChecked == true;
-            config.ConfirmShutdown = chkConfirmShutdown.IsChecked == true;
-            config.EnableAgentPing = chkEnableAgentPing.IsChecked == true;
+            config.DefaultView = btnViewList.IsChecked is true ? AppConfig.ViewList : AppConfig.ViewCard;
+            config.ShowBars = chkShowBars.IsChecked is true;
+            config.ShowNodes = chkShowNodes.IsChecked is true;
+            config.ShowPools = chkShowPools.IsChecked is true;
+            config.ShowTags = chkShowTags.IsChecked is true;
+            config.ShowStartButton = chkShowStart.IsChecked is true;
+            config.ConfirmStart = chkConfirmStart.IsChecked is true;
+            config.ShowShutdownButton = chkShowShutdown.IsChecked is true;
+            config.ConfirmShutdown = chkConfirmShutdown.IsChecked is true;
+            config.EnableAgentPing = chkEnableAgentPing.IsChecked is true;
         }
 
         return (tab, Save);

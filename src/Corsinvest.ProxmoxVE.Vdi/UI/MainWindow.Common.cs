@@ -41,7 +41,7 @@ internal partial class MainWindow
             color = Colors.Gray;
             opacity = 0.5;
         }
-        else if (row.Features.AgentRunning == true)
+        else if (row.Features.AgentRunning is true)
         {
             tooltip = L("BadgeAgentRunning");
             color = AppColors.Running;
@@ -117,7 +117,7 @@ internal partial class MainWindow
             {
                 if (_config.ConfirmStart && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmStart"), row.Name))) { return; }
                 await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Start);
-                if (_btnAutoRef?.IsChecked != true) { _btnAutoRef!.IsChecked = true; }
+                if (_btnAutoRef?.IsChecked is not true) { _btnAutoRef!.IsChecked = true; }
                 await RefreshAsync();
             };
             AddLeft(btn);
@@ -130,7 +130,7 @@ internal partial class MainWindow
             {
                 if (_config.ConfirmShutdown && !await DialogHelper.ConfirmAsync(_window!, string.Format(L("ConfirmShutdown"), row.Name))) { return; }
                 await VmService.ChangeStatusAsync(_client, row.Resource.Node, row.Resource.VmId, row.VmType, VmStatus.Shutdown);
-                if (_btnAutoRef?.IsChecked != true) { _btnAutoRef!.IsChecked = true; }
+                if (_btnAutoRef?.IsChecked is not true) { _btnAutoRef!.IsChecked = true; }
                 await RefreshAsync();
             };
             AddLeft(btn);
@@ -454,20 +454,20 @@ internal partial class MainWindow
                                             || a.Description.Contains(ft, StringComparison.OrdinalIgnoreCase));
         }
 
-        var filterByStatus = _chkRunning.IsChecked == true || _chkStopped.IsChecked == true;
+        var filterByStatus = _chkRunning.IsChecked is true || _chkStopped.IsChecked is true;
         if (filterByStatus)
         {
             filtered = filtered.Where(a => a.ResourceType == ClusterResourceType.Node
-                                            || (_chkRunning.IsChecked == true && a.IsActive)
-                                            || (_chkStopped.IsChecked == true && !a.IsActive));
+                                            || (_chkRunning.IsChecked is true && a.IsActive)
+                                            || (_chkStopped.IsChecked is true && !a.IsActive));
         }
 
-        var filterByType = _chkQemu.IsChecked == true || _chkLxc.IsChecked == true;
+        var filterByType = _chkQemu.IsChecked is true || _chkLxc.IsChecked is true;
         if (filterByType)
         {
             filtered = filtered.Where(a => a.ResourceType == ClusterResourceType.Node
-                                            || (a.VmType == VmType.Qemu && _chkQemu.IsChecked == true)
-                                            || (a.VmType == VmType.Lxc && _chkLxc.IsChecked == true));
+                                            || (a.VmType == VmType.Qemu && _chkQemu.IsChecked is true)
+                                            || (a.VmType == VmType.Lxc && _chkLxc.IsChecked is true));
         }
 
         if (_filterNodes.Count > 0)

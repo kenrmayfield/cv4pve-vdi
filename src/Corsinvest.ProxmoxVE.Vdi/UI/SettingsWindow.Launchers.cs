@@ -172,8 +172,8 @@ internal static partial class SettingsWindow
         void Save()
         {
             config.ViewerPath = txtViewerPath.Text?.Trim() ?? string.Empty;
-            config.EnableSpice = chkEnableSpice.IsChecked == true;
-            config.EnableVnc = chkEnableVnc.IsChecked == true;
+            config.EnableSpice = chkEnableSpice.IsChecked is true;
+            config.EnableVnc = chkEnableVnc.IsChecked is true;
         }
 
         return (tab, Save);

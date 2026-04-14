@@ -145,10 +145,7 @@ internal static class VmServicesWindow
             }
         };
 
-        btnSave.Click += (_, _) =>
-        {
-            window.Close(new VmConfig { VmId = vmConfig.VmId, Services = [.. services] });
-        };
+        btnSave.Click += (_, _) => window.Close(new VmConfig { VmId = vmConfig.VmId, Services = [.. services] });
 
         var updated = await window.ShowDialog<VmConfig?>(owner);
         return updated ?? vmConfig;
@@ -195,8 +192,8 @@ internal static class VmServicesWindow
 
         var tcs = new TaskCompletionSource<bool>();
 
-        btnAdd.Click += (_, _) => { tcs.TrySetResult(true); };
-        btnCancel.Click += (_, _) => { tcs.TrySetResult(false); };
+        btnAdd.Click += (_, _) => tcs.TrySetResult(true);
+        btnCancel.Click += (_, _) => tcs.TrySetResult(false);
 
         var itemsPanel = new StackPanel { Spacing = 6 };
         foreach (var chk in checkboxes) { itemsPanel.Children.Add(chk); }
@@ -234,6 +231,6 @@ internal static class VmServicesWindow
 
         if (!confirmed) { return []; }
 
-        return [.. found.Where((l, i) => checkboxes[i].IsChecked == true)];
+        return [.. found.Where((_, i) => checkboxes[i].IsChecked is true)];
     }
 }
