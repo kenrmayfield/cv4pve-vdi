@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: MIT
  */
 
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Corsinvest.ProxmoxVE.Api;
 using Corsinvest.ProxmoxVE.Api.Extension;
 using Corsinvest.ProxmoxVE.Api.Shared.Models.Vm;
 using Corsinvest.ProxmoxVE.Api.Shared.Utils;
 using Corsinvest.ProxmoxVE.Vdi.Config.Models;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 namespace Corsinvest.ProxmoxVE.Vdi.Services;
 
@@ -87,13 +88,20 @@ internal static partial class RemoteViewerService
         var bridge = new VncWebSocketBridge();
         bridge.Start(wsUrl, client.Host, pveAuthCookie);
 
+        var vmTypeStrvv = vmType switch
+        {
+            VmType.Qemu => "VM",
+            VmType.Lxc => "CT",
+            _ => throw new InvalidEnumArgumentException(),
+        };
+
         var vvContent = $"""
             [virt-viewer]
             type=vnc
             host=127.0.0.1
             port={bridge.LocalPort}
             password={ticket}
-            title={node}:{(vmType == VmType.Lxc ? "lxc" : "qemu")}/{vmId}
+            title=VNC: {vmTypeStrvv} {vmId}
             delete-this-file=1
             """;
 
