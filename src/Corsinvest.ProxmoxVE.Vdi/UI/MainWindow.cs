@@ -190,7 +190,7 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
             BorderThickness = new Thickness(0)
         };
         var btnAutoRef = _btnAutoRef;
-        btnAutoRef.IsCheckedChanged += (_, _) => autoRefLabel.IsVisible = btnAutoRef.IsChecked == true;
+        btnAutoRef.IsCheckedChanged += (_, _) => autoRefLabel.IsVisible = btnAutoRef.IsChecked is true;
 
         var menuItemSettings = new MenuItem { Header = UiHelper.WithText(AppIcons.Settings, L("Settings")) };
         var btnMore = BuildHelpMenu(menuItemSettings);
@@ -474,7 +474,7 @@ internal partial class MainWindow(PveClient client, ClusterConfig host, AppConfi
 
         btnAutoRef.IsCheckedChanged += (_, _) =>
         {
-            if (btnAutoRef.IsChecked == true)
+            if (btnAutoRef.IsChecked is true)
             {
                 autoRefTimer.Start();
             }

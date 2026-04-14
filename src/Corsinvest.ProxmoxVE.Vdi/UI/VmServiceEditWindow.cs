@@ -79,10 +79,7 @@ internal static class VmServiceEditWindow
             Children = { txtUsername, txtPassword }
         };
 
-        cmbCredSource.SelectionChanged += (_, _) =>
-        {
-            credPanel.IsVisible = cmbCredSource.SelectedItem is CredentialSource.Manual;
-        };
+        cmbCredSource.SelectionChanged += (_, _) => credPanel.IsVisible = cmbCredSource.SelectedItem is CredentialSource.Manual;
 
         // Error / Save
         var lblError = new TextBlock { Foreground = Brushes.Red, IsVisible = false };

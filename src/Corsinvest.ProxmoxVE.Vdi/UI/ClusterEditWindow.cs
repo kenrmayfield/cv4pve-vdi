@@ -102,7 +102,7 @@ internal static class ClusterEditWindow
             {
                 Name = name,
                 Hosts = url,
-                SkipSslValidation = chkSkipSsl.IsChecked == true,
+                SkipSslValidation = chkSkipSsl.IsChecked is true,
                 Timeout = (int)(numTimeout.Value ?? 10),
                 Spice = new SpiceConfig
                 {

@@ -70,10 +70,7 @@ internal static class LauncherEditWindow
             IsVisible = (existing?.Platform ?? LauncherPlatform.Windows) == LauncherPlatform.Windows
         };
 
-        cmbPlatform.SelectionChanged += (_, _) =>
-        {
-            chkWinCredential.IsVisible = cmbPlatform.SelectedItem is LauncherPlatform.Windows;
-        };
+        cmbPlatform.SelectionChanged += (_, _) => chkWinCredential.IsVisible = cmbPlatform.SelectedItem is LauncherPlatform.Windows;
 
         // Error / Save
         var lblError = new TextBlock { Foreground = Brushes.Red, IsVisible = false };
@@ -159,8 +156,8 @@ internal static class LauncherEditWindow
                 Executable = txtExecutable.Text!.Trim(),
                 Arguments = txtArguments.Text?.Trim() ?? string.Empty,
                 ExtraArgs = txtExtraArgs.Text?.Trim() ?? string.Empty,
-                SupportsCredentials = chkCredentials.IsChecked == true,
-                UseWindowsCredential = chkWinCredential.IsChecked == true,
+                SupportsCredentials = chkCredentials.IsChecked is true,
+                UseWindowsCredential = chkWinCredential.IsChecked is true,
                 DocumentationUrl = existing?.DocumentationUrl ?? string.Empty,
             });
         };

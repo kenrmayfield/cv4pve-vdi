@@ -11,12 +11,13 @@ namespace Corsinvest.ProxmoxVE.Vdi.UI;
 
 internal partial class MainWindow
 {
-    private static Control BuildInlineBar(double pct, string text) => new StackPanel
-    {
-        Spacing = 2,
-        VerticalAlignment = VerticalAlignment.Center,
-        HorizontalAlignment = HorizontalAlignment.Stretch,
-        Children =
+    private static Control BuildInlineBar(double pct, string text)
+        => new StackPanel
+        {
+            Spacing = 2,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
         {
             new ProgressBar
             {
@@ -31,7 +32,7 @@ internal partial class MainWindow
                 TextTrimming = TextTrimming.CharacterEllipsis
             }
         }
-    };
+        };
 
     private Control BuildListRow(ResourceRow r)
     {
